@@ -17,8 +17,6 @@
 #include <sys/timer.h>
 #include <sys/process.h>
 
-#include <arpa/inet.h>
-#include <netinet/in.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
@@ -37,6 +35,7 @@
 //#define ENGLISH_ONLY 1 // uncomment for english only version
 //#define USE_DEBUG 1
 //#define EXTRA_FEAT 1
+//#define VIDEO_REC 1   //not working
 
 //#define CCAPI 1		// uncomment for ccapi release
 #define COBRA_ONLY 1	// comment out for ccapi/non-cobra release
@@ -68,7 +67,7 @@ SYS_MODULE_STOP(wwwd_stop);
 #define PS2_CLASSIC_ISO_PATH     "/dev_hdd0/game/PS2U10000/USRDIR/ISO.BIN.ENC"
 #define PS2_CLASSIC_ISO_ICON     "/dev_hdd0/game/PS2U10000/ICON0.PNG"
 
-#define WM_VERSION			"1.34.07 MOD"						// webMAN version
+#define WM_VERSION			"1.34.08 MOD"						// webMAN version
 #define MM_ROOT_STD			"/dev_hdd0/game/BLES80608/USRDIR"	// multiMAN root folder
 #define MM_ROOT_SSTL		"/dev_hdd0/game/NPEA00374/USRDIR"	// multiman SingStar® Stealth root folder
 #define MM_ROOT_STL			"/dev_hdd0/tmp/game_repo/main"		// stealthMAN root folder
@@ -839,8 +838,12 @@ int (*vshtask_notify)(int, const char *) = NULL;
 
 #ifndef LITE_EDITION
 //#include "vsh/xmb_plugin.h"
-//#include "vsh/rec_plugin.h"
-//#include "vsh/game_plugin.h"
+
+#ifdef VIDEO_REC
+#include "vsh/game_plugin.h"
+#include "vsh/rec_plugin.h"
+#endif
+
 #include "vsh/system_plugin.h"
 #endif
 
@@ -940,6 +943,88 @@ void saveBMP()
 		show_msg(bmp);
 	}
 }
+#ifdef VIDEO_REC
+bool rec_start()
+{
+	recOpt[1] = 0x4660;//CELL_REC_PARAM_VIDEO_FMT_M4HD_HD720_5000K_30FPS | 0x2100; //CELL_REC_PARAM_VIDEO_FMT_AVC_BL_MIDDLE_512K_30FPS
+	recOpt[2] = 0x0000; //CELL_REC_PARAM_AUDIO_FMT_AAC_96K
+	recOpt[5] = (vsh_E7C34044(1) == -1 ) ? vsh_E7C34044(0) : vsh_E7C34044(1);
+	recOpt[0x208] = 0x80; // 0x90 show XMB || reduce memsize // 0x80; // allow show XMB
+
+	CellRtcDateTime t;
+	cellRtcGetCurrentClockLocalTime(&t);
+
+	char g[0x120];
+	game_interface = (game_plugin_interface *)plugin_GetInterface(View_Find("game_plugin"),1);
+
+	game_interface->DoUnk8(g);
+
+	cellFsMkdir((char*)"/dev_hdd0/plugins", 0777);
+
+	vsh_sprintf((char*)&recOpt[0x6],"/dev_hdd0/plugins/%s_%04d.%02d.%02d_%02d_%02d.mp4",g+4,t.year,t.month,t.day,t.hour,t.minute);
+
+	reco_open(-1); // memory container
+	sys_timer_sleep(4);
+
+	if(View_Find("rec_plugin") != 0)
+	{
+		rec_interface = (rec_plugin_interface *)plugin_GetInterface(View_Find("rec_plugin"),1);
+		if(rec_interface != 0)
+		{
+			rec_interface->start();
+			return true;
+		}
+		else
+		{
+			return false;
+		}
+	}
+	else
+	{
+		reco_open(-1); //reco_open((vsh_E7C34044(1) == -1 ) ? vsh_E7C34044(0) : vsh_E7C34044(1));
+		sys_timer_sleep(3);
+		if(View_Find("rec_plugin") != 0)
+		{
+			rec_interface = (rec_plugin_interface *)plugin_GetInterface(View_Find("rec_plugin"),1);
+			rec_interface->start();
+			return true;
+		}
+		else
+		{
+			show_msg("No rec_plugin view found.");
+			return false;
+		}
+	}
+}
+
+bool recording=false;
+void toggle_rec()
+{
+	if(View_Find("game_plugin") != 0)
+	{
+		if(recording == false)
+		{
+			show_msg("Recording started.");
+
+			if(rec_start()==false)
+			{
+				show_msg("Recording Error.");
+			}
+			else
+			{
+				recording = true;
+			}
+		}
+		else
+		{
+			rec_interface->stop();
+			rec_interface->close(0);
+			show_msg("Recording finished.");
+			recording = false;
+		}
+	}
+}
+#endif
 #endif
 
 #ifndef COBRA_ONLY
@@ -5483,7 +5568,7 @@ restart:
 
 
 				strcpy(buffer, "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\"><html xmlns=\"http://www.w3.org/1999/xhtml\"><meta http-equiv=\"Content-type\" content=\"text/html;charset=UTF-8\"><META HTTP-EQUIV=\"CACHE-CONTROL\" CONTENT=\"NO-CACHE\">");
-				if(strstr(param, "cpursx.ps3")) strcat(buffer, "<meta http-equiv=\"refresh\" content=\"3\">");
+				if(strstr(param, "cpursx.ps3")) strcat(buffer, "<meta http-equiv=\"refresh\" content=\"5\">");
 				strcat(buffer,	"<head><title>webMAN MOD</title>"
 								"<style type=\"text/css\"><!--\r\n"
 								"a:visited {color: #909090; text-decoration: none;} a:link:hover {color: #FFFFFF;}"
@@ -5555,10 +5640,14 @@ restart:
 
 					get_idps_psid();
 
+					uint32_t blockSize;
+					uint64_t freeSize;
+					cellFsGetFreeSize((char*)"/dev_hdd0", &blockSize, &freeSize);
+
 					sprintf(templn, "<hr><font size=42px><b>CPU: %i°C (MAX: %i°C)<br>"
 															"RSX: %i°C<hr>"
 															"CPU: %i°F (MAX: %i°F)<br>"
-															"RSX: %i°F<hr>MEM: %iKB<hr>"
+															"RSX: %i°F<hr>MEM: %iKB  HDD: %i %s<hr>"
 															"FAN SPEED: 0x%X (%i%%)<hr><small>"
 															"PSID LV2 : %016llX%016llX<hr>"
 															"IDPS EID0: %016llX%016llX<br>"
@@ -5566,13 +5655,12 @@ restart:
 									"</small></font><hr>",
 									t1, max_temp, t2,
 									t1f, (int)(1.8f*(float)max_temp+32.f),
-									t2f, (meminfo.avail>>10),
+									t2f, (meminfo.avail>>10), (int)((blockSize*freeSize)>>20), STR_MBFREE,
 									fan_speed, (int)((int)fan_speed*100)/255,
 									PSID[0], PSID[1],
 									eid0_idps[0], eid0_idps[1],
 									IDPS[0], IDPS[1]);
 					strcat(buffer, templn);
-
 
 
 					//CellGcmConfig config; cellGcmGetConfiguration(&config);
@@ -6221,8 +6309,10 @@ just_leave:
 
 						sprintf(templn, "%s : <select name=\"usr\">", STR_PROFILE); strcat(buffer, templn);
 						add_option_item("0" , "DEFAULT", (profile==0) , buffer);
-						for(u8 i=1;i<5;i++)
-							add_option_item('0'+i, '0'+i, (profile==i) , buffer);
+						add_option_item("1", "1", (profile==1) , buffer);
+						add_option_item("2", "2", (profile==2) , buffer);
+						add_option_item("3", "3", (profile==3) , buffer);
+						add_option_item("4", "4", (profile==4) , buffer);
 
 						strcat(buffer, "</select> : hdd0/home/<select name=\"uacc\">");
 						{
@@ -6241,6 +6331,7 @@ just_leave:
 								}
 								cellFsClosedir(fd);
 							}
+
 						}
 #ifndef LITE_EDITION
 						sprintf(templn, "</select> &nbsp; %s : [<a href=\"/delete.ps3?wmconfig\">wmconfig</a>] [<a href=\"/delete.ps3?wmtmp\">wmtmp</a>] [<a href=\"/delete.ps3?history\">history</a>]<p>", STR_DELETE); strcat(buffer, templn);
@@ -8637,8 +8728,17 @@ DEBUG  Menu Switcher : L3+L2+X
 							sprintf(msg, "%s XML%s: OK", STR_REFRESH, SUFIX2(profile));
 							show_msg((char*)msg);
 						}
-						else
+                        else
+#ifdef VIDEO_REC
+						if(data.button[CELL_PAD_BTN_OFFSET_DIGITAL1] & CELL_PAD_CTRL_R3) // SELECT+R3
+						{
+                            toggle_rec();
+						}
+                        else
+						if(!(webman_config->combo & SHOW_TEMP) && (data.button[CELL_PAD_BTN_OFFSET_DIGITAL1] & (/*CELL_PAD_CTRL_R3 |*/ CELL_PAD_CTRL_START))) // SELECT+START show temperatures / hdd space
+#else
 						if(!(webman_config->combo & SHOW_TEMP) && (data.button[CELL_PAD_BTN_OFFSET_DIGITAL1] & (CELL_PAD_CTRL_R3 | CELL_PAD_CTRL_START))) // SELECT+START show temperatures / hdd space
+#endif
 						{
 #ifndef LITE_EDITION
 							if(data.button[CELL_PAD_BTN_OFFSET_DIGITAL2] == (CELL_PAD_CTRL_R2 | CELL_PAD_CTRL_L2) )
@@ -9392,6 +9492,19 @@ static void wwwd_thread(uint64_t arg)
 	View_Find = (void*)((int)getNIDfunc("paf",0xF21655F3));
 	plugin_GetInterface = (void*)((int)getNIDfunc("paf",0x23AFB290));
 	vsh_sprintf = (void*)((int)getNIDfunc("stdc",0x273B9711)); // sprintf
+
+#ifdef VIDEO_REC
+	reco_open = (void*)((int)getNIDfunc("vshmain",0xBEF63A14));
+	reco_open -= (50*2);
+
+	// fetch recording utility vsh options
+	//int* func_start = (int*&)(*((int*&)reco_open));
+    int* func_start = *reco_open;
+	func_start += 3;
+	int dword1 = ((*func_start) & 0x0000FFFF) - 1;
+	func_start += 2;
+	recOpt = (uint32_t*)((dword1 << 16) + ((*func_start) & 0x0000FFFF));//(uint32_t*)0x72EEC0;
+#endif
 #endif
 
 	//pokeq(0x8000000000003560ULL, 0x386000014E800020ULL); // li r3, 0 / blr
@@ -10138,8 +10251,8 @@ static void mount_with_mm(const char *_path0, u8 do_eject)
 
 	strcpy(_path, _path0);
 
-	//if(strstr(_path, "/PS3_GAME/USRDIR/EBOOT.BIN")) _path[strlen(_path)-26]=0;
-	{char *p=strstr(_path, "/PS3_GAME");if(p) p=NULL;};
+    //if(_path[0] && strstr(_path, "/PS3_GAME/USRDIR/EBOOT.BIN")) _path[strlen(_path)-26]=0;
+	{int n=strstr(_path, "/PS3_GAME")-_path;if(n>=0) _path[n]=0;};
 
 	if(!strcmp(_path, "/dev_bdvd")) {do_umount(false); goto exit_mount;}
 

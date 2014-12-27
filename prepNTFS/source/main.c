@@ -1,3 +1,7 @@
+#include <arpa/inet.h>
+
+#define ssend(socket, str) send(socket, str, strlen(str), 0)
+
 #include <stdio.h>
 #include <string.h>
 #include "ntfs.h"
@@ -533,6 +537,28 @@ int copy_file(char *src_file, char *out_file)
     return FAILED;
 }
 
+static int connect_to_webman()
+{
+	struct sockaddr_in sin;
+	int s;
+
+	sin.sin_family = AF_INET;
+	sin.sin_addr.s_addr = 0x7F000001; //127.0.0.1 (localhost)
+	sin.sin_port = htons(80);         //http port (80)
+	s = socket(AF_INET, SOCK_STREAM, 0);
+	if (s < 0)
+	{
+		return FAILED;
+	}
+
+	if (connect(s, (struct sockaddr *)&sin, sizeof(sin)) < 0)
+	{
+		return FAILED;
+	}
+
+	return s;
+}
+
 int main(int argc, const char* argv[])
 {
 	int i, parts;
@@ -549,6 +575,7 @@ int main(int argc, const char* argv[])
     struct stat st;
 	char c_path[4][8]={"PS3ISO", "BDISO", "DVDISO", "PSXISO"};
 	char extensions[4][8]={".iso", ".ISO", ".bin", ".BIN"};
+	char cover_ext[4][8]={".jpg", ".png", ".PNG", ".JPG"};
 
 	snprintf(path, sizeof(path), "/dev_hdd0/tmp/wmtmp");
 	mkdir(path, S_IRWXO | S_IRWXU | S_IRWXG | S_IFDIR);
@@ -678,29 +705,23 @@ int main(int argc, const char* argv[])
 								}
 								else
 								{
-									sprintf(wm_path, "/dev_hdd0/tmp/wmtmp/%s.jpg", filename);
-									if(file_exists(wm_path)==false)
+									int plen=0;
+
+									for(u8 e=0;e<4;e++)
 									{
-										sprintf(image_file,	"%s", path);
-										image_file[strlen(image_file)-4]=0; strcat(image_file, ".jpg");
+										sprintf(wm_path, "/dev_hdd0/tmp/wmtmp/%s%s", filename, cover_ext[e]);
+										if(file_exists(wm_path)) break;
+
+										if(plen==0)
+										{
+											sprintf(image_file, "%s", path);
+											plen=strlen(image_file)-4;
+										}
+
+										image_file[plen]=0; strcat(image_file, cover_ext[e]);
 
 										copy_file(image_file, wm_path);
-										if(file_exists(wm_path)==false)
-										{
-											image_file[strlen(image_file)-4]=0; strcat(image_file, ".JPG");
-											copy_file(image_file, wm_path);
-											if(file_exists(wm_path)==false)
-											{
-												sprintf(wm_path, "/dev_hdd0/tmp/wmtmp/%s.PNG", filename);
-												image_file[strlen(image_file)-4]=0; strcat(image_file, ".png");
-												copy_file(image_file, wm_path);
-												if(file_exists(wm_path)==false)
-												{
-													image_file[strlen(image_file)-4]=0; strcat(image_file, ".PNG");
-													copy_file(image_file, wm_path);
-												}
-											}
-										}
+										if(file_exists(wm_path)) break;
 									}
 								}
 
@@ -810,5 +831,11 @@ int main(int argc, const char* argv[])
 		}
     }
 	for (u8 u = 0; u < mountCount; u++) ntfsUnmount(mounts[u].name, 1);
+
+	// force refresh xml
+	int refresh_xml=-1;
+	refresh_xml=connect_to_webman();
+	if(refresh_xml>=0) ssend(refresh_xml, "GET /refresh.ps3 HTTP/1.0\r\n");
+
 	return 0;
 }

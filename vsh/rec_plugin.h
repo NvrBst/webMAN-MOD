@@ -16,3 +16,4 @@ int (*vsh_E7C34044)(int)=0;
 
 rec_plugin_interface * rec_interface;
 uint32_t * recOpt = 0;
+
