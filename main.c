@@ -123,6 +123,7 @@ SYS_MODULE_STOP(wwwd_stop);
 #define ssend(socket, str) send(socket, str, strlen(str), 0)
 #define getPort(p1x, p2x) ((p1x * 256) + p2x)
 
+#define _64KB_		65536
 #define KB			1024UL
 #define MB			1048576UL
 
@@ -837,10 +838,10 @@ void show_msg(char* msg);
 int (*vshtask_notify)(int, const char *) = NULL;
 
 #ifndef LITE_EDITION
+#include "vsh/game_plugin.h"
 //#include "vsh/xmb_plugin.h"
 
 #ifdef VIDEO_REC
-#include "vsh/game_plugin.h"
 #include "vsh/rec_plugin.h"
 #endif
 
@@ -943,6 +944,7 @@ void saveBMP()
 		show_msg(bmp);
 	}
 }
+
 #ifdef VIDEO_REC
 bool rec_start()
 {
@@ -961,7 +963,7 @@ bool rec_start()
 
 	cellFsMkdir((char*)"/dev_hdd0/plugins", 0777);
 
-	vsh_sprintf((char*)&recOpt[0x6],"/dev_hdd0/plugins/%s_%04d.%02d.%02d_%02d_%02d.mp4",g+4,t.year,t.month,t.day,t.hour,t.minute);
+	vsh_sprintf((char*)&recOpt[0x6],"/dev_hdd0/plugins/%s_%04d.%02d.%02d_%02d_%02d_%02d.mp4",g+4,t.year,t.month,t.day,t.hour,t.minute,t.second);
 
 	reco_open(-1); // memory container
 	sys_timer_sleep(4);
@@ -3284,7 +3286,7 @@ static int read_remote_dir(int s, sys_addr_t *data /*netiso_read_dir_result_data
 		if(res.dir_size>866) res.dir_size=866;
 		len = (sizeof(netiso_read_dir_result_data)*res.dir_size);
 		sys_addr_t data1=0;
-		int len2= ((len+65536)/65536)*65536;
+		int len2= ((len+_64KB_)/_64KB_)*_64KB_;
 		if(sys_memory_allocate(len2, SYS_MEMORY_PAGE_SIZE_64K, &data1)==0)
 		{
 			*data=data1;
@@ -5229,7 +5231,7 @@ restart:
 			{
 				sprintf(templn, "Content-Length: %llu\r\n\r\n", (unsigned long long)c_len); strcat(header, templn);
 				ssend(conn_s, header);
-				if(sys_memory_allocate(65536, SYS_MEMORY_PAGE_SIZE_64K, &sysmem)!=0)
+				if(sys_memory_allocate(_64KB_, SYS_MEMORY_PAGE_SIZE_64K, &sysmem)!=0)
 				{
 					sclose(&conn_s);
 					loading_html--;
@@ -5244,7 +5246,7 @@ restart:
 					while(working)
 					{
 						//sys_timer_usleep(500);
-						if(cellFsRead(fd, (void *)buffer, 65536, &read_e)==CELL_FS_SUCCEEDED)
+						if(cellFsRead(fd, (void *)buffer, _64KB_, &read_e)==CELL_FS_SUCCEEDED)
 						{
 							if(read_e>0)
 							{
@@ -5266,7 +5268,7 @@ restart:
 			}
 			if(strstr(param, "cpursx.ps3"))
 			{
-				if(sys_memory_allocate(65536, SYS_MEMORY_PAGE_SIZE_64K, &sysmem)!=0)
+				if(sys_memory_allocate(_64KB_, SYS_MEMORY_PAGE_SIZE_64K, &sysmem)!=0)
 				{
 					sclose(&conn_s);
 					loading_html--;
@@ -5643,7 +5645,16 @@ restart:
 					uint32_t blockSize;
 					uint64_t freeSize;
 					cellFsGetFreeSize((char*)"/dev_hdd0", &blockSize, &freeSize);
+#ifndef LITE_EDITION
+					if(View_Find("game_plugin") != 0)
+					{
+						char g[0x120];
+						game_interface = (game_plugin_interface *)plugin_GetInterface(View_Find("game_plugin"),1);
+						game_interface->DoUnk8(g);
 
+						sprintf(templn, "<hr><H2>%s %s</H2>", g+4); strcat(buffer, templn);
+					}
+#endif
 					sprintf(templn, "<hr><font size=42px><b>CPU: %i°C (MAX: %i°C)<br>"
 															"RSX: %i°C<hr>"
 															"CPU: %i°F (MAX: %i°F)<br>"
@@ -10725,7 +10736,7 @@ static void mount_with_mm(const char *_path0, u8 do_eject)
 						uint64_t msiz = 0;
 
 						sys_addr_t buf1=0;
-						if(sys_memory_allocate(65536, SYS_MEMORY_PAGE_SIZE_64K, &buf1)==0)
+						if(sys_memory_allocate(_64KB_, SYS_MEMORY_PAGE_SIZE_64K, &buf1)==0)
 						{
 							if(cellFsOpen(_path, CELL_FS_O_RDONLY, &fdw, 0, 0)==CELL_FS_SUCCEEDED)
 							{

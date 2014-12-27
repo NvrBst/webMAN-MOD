@@ -8,7 +8,7 @@
 				<Pair key="icon"><String>/dev_hdd0/game/XMBMANPLS/USRDIR/IMAGES/multiman.png</String></Pair>
 				<Pair key="icon_notation"><String>WNT_XmbItemBrowser</String></Pair>
 				<Pair key="title"><String>webMAN</String></Pair>
-				<Pair key="info"><String>Quick Links to webMAN Functions</String></Pair>
+				<Pair key="info"><String>Collegamenti rapidi alle funzioni di Webman</String></Pair>
 				<Pair key="child"><String>segment</String></Pair>
 			</Table>
 		</Attributes>
