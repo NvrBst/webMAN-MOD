@@ -49,6 +49,8 @@
 #include "vsh/system_plugin.h"
 #include "vsh/game_plugin.h"
 
+char _game_name[0x120];
+
 #ifdef COBRA_ONLY
 #include "cobra/cobra.h"
 #include "cobra/netiso.h"
@@ -900,6 +902,19 @@ void show_msg(char* msg)
 		vshtask_notify(0, msg);
 }
 
+char* game_name()
+{
+    int h = View_Find("game_plugin");
+
+	if(h)
+	{
+		game_interface = (game_plugin_interface *)plugin_GetInterface(h,1);
+		game_interface->DoUnk8(_game_name);
+	}
+
+    return h;
+}
+
 #ifndef LITE_EDITION
 /*
 void log(char * buffer)
@@ -927,7 +942,7 @@ void show_msg2(char* msg) // usage: show_msg2(L"text");
 
 void saveBMP()
 {
-	if(View_Find("game_plugin") == 0)
+	if(game_name()==0) //XMB
 	{
 		system_interface = (system_plugin_interface *)plugin_GetInterface(View_Find("system_plugin"),1); // 1=regular xmb, 3=ingame xmb (doesnt work)
 
@@ -947,6 +962,8 @@ void saveBMP()
 #ifdef VIDEO_REC
 bool rec_start()
 {
+	if(game_name()==0) return false; // XMB
+
 	recOpt[1] = 0x4660;//CELL_REC_PARAM_VIDEO_FMT_M4HD_HD720_5000K_30FPS | 0x2100; //CELL_REC_PARAM_VIDEO_FMT_AVC_BL_MIDDLE_512K_30FPS
 	recOpt[2] = 0x0000; //CELL_REC_PARAM_AUDIO_FMT_AAC_96K
 	recOpt[5] = (vsh_E7C34044(1) == -1 ) ? vsh_E7C34044(0) : vsh_E7C34044(1);
@@ -955,14 +972,9 @@ bool rec_start()
 	CellRtcDateTime t;
 	cellRtcGetCurrentClockLocalTime(&t);
 
-	char g[0x120];
-	game_interface = (game_plugin_interface *)plugin_GetInterface(View_Find("game_plugin"),1);
-
-	game_interface->DoUnk8(g);
-
 	cellFsMkdir((char*)"/dev_hdd0/plugins", 0777);
 
-	vsh_sprintf((char*)&recOpt[0x6],"/dev_hdd0/plugins/%s_%04d.%02d.%02d_%02d_%02d_%02d.mp4",g+4,t.year,t.month,t.day,t.hour,t.minute,t.second);
+    game_name(); vsh_sprintf((char*)&recOpt[0x6],"/dev_hdd0/plugins/%s_%04d.%02d.%02d_%02d_%02d_%02d.mp4",_game_name+4,t.year,t.month,t.day,t.hour,t.minute,t.second);
 
 	reco_open(-1); // memory container
 	sys_timer_sleep(4);
@@ -1001,7 +1013,7 @@ bool rec_start()
 bool recording=false;
 void toggle_rec()
 {
-	if(View_Find("game_plugin") != 0)
+	if(game_name())
 	{
 		if(recording == false)
 		{
@@ -5594,9 +5606,9 @@ restart:
 							   ".gn{position: absolute;height: 38px;bottom: 0px;right: 7px;left: 7px;text-align: center;} --></style></head>"
 							   "<body bgcolor=\"#101010\"><font face=\"Courier New\"><b>");
 
-				bool mount_ps3 = strstr(param, "mount_ps3"), forced_mount = false;
+				bool mount_ps3 = (strstr(param, "mount_ps3")!=NULL), forced_mount = false;
 
-				if(mount_ps3 && View_Find("game_plugin") != 0) {mount_ps3=false; forced_mount=true;}
+				if(mount_ps3 && game_name()) {mount_ps3=false; forced_mount=true;}
 
 				if(!mount_ps3)
 				{sprintf(templn, "webMAN " WM_VERSION " %s [<a href=\"/\">%s</a>] [<a href=\"/index.ps3\">%s</a>] [<a href=\"/setup.ps3\">%s</a>]</b>", STR_TRADBY, STR_FILES, STR_GAMES, STR_SETUP ); strcat(buffer, templn);}
@@ -5647,13 +5659,9 @@ restart:
 					uint64_t freeSize;
 					cellFsGetFreeSize((char*)"/dev_hdd0", &blockSize, &freeSize);
 #ifndef LITE_EDITION
-					if(View_Find("game_plugin") != 0)
+					if(game_name())
 					{
-						char g[0x120];
-						game_interface = (game_plugin_interface *)plugin_GetInterface(View_Find("game_plugin"),1);
-						game_interface->DoUnk8(g);
-
-						sprintf(templn, "<hr><H2>%s %s</H2>", g+4); strcat(buffer, templn);
+						sprintf(templn, "<hr><H2>%s %s</H2>", _game_name+4); strcat(buffer, templn);
 					}
 #endif
 					sprintf(templn, "<hr><font size=42px><b>CPU: %i°C (MAX: %i°C)<br>"
@@ -5716,7 +5724,7 @@ restart:
 						{
 							CellFsDirent entry;
 							u64 read_e;
-							unsigned long long sz=0;
+							unsigned long long sz=0, dir_size=0;
 							char sf[8];
 							char fsize[128];
 							char ename[8];
@@ -5808,7 +5816,7 @@ restart:
 
 											cellRtcSetTime_t(&rDate, data[n].mtime);
 
-                                            sz=(unsigned long long)data[n].file_size;
+                                            sz=(unsigned long long)data[n].file_size; dir_size+=sz;
 											if(sz<10240) sprintf(sf, "%s", STR_BYTE);
 											else if(sz<2097152) {sprintf(sf, "%s", STR_KILOBYTE); sz>>=10;}
 											else if(sz<2147483648U) {sprintf(sf, "%s", STR_MEGABYTE); sz>>=20;}
@@ -5906,7 +5914,7 @@ restart:
 									cellFsStat(templn, &buf);
 									cellRtcSetTime_t(&rDate, buf.st_mtime);
 
-									sz=(unsigned long long)buf.st_size;
+									sz=(unsigned long long)buf.st_size; dir_size+=sz;
 									if(sz<10240) sprintf(sf, "%s", STR_BYTE);
 									else if(sz<2097152) {sprintf(sf, "%s", STR_KILOBYTE); sz>>=10;}
 									else if(sz<2147483648U) {sprintf(sf, "%s", STR_MEGABYTE); sz>>=20;}
@@ -6006,7 +6014,7 @@ just_leave:
 									param[strchr(param+1, '/')-param]=0;
 
 								cellFsGetFreeSize(param, &blockSize, &freeSize);
-								sprintf(templn, "<hr title=\"%i Dir(s) %i %s\"><b><a href=\"%s\">%s</a>: %i %s</b><br>", (dirs-1), (idx-dirs), STR_FILES, param, param, (int)((blockSize*freeSize)>>20), STR_MBFREE);
+								sprintf(templn, "<hr title=\"%i Dir(s) %i %s %i %s\"><b><a href=\"%s\">%s</a>: %i %s</b><br>", (dirs-1), (idx-dirs), STR_FILES, dir_size<(1*MB)?(int)(dir_size>>10):(int)(dir_size>>20), dir_size<(1*MB)?STR_KILOBYTE:STR_MEGABYTE, param, param, (int)((blockSize*freeSize)>>20), STR_MBFREE);
 								strcat(buffer, templn);
 							}
 							else
@@ -6509,14 +6517,11 @@ just_leave:
 
 							if(!(plen==IS_COPY && !copy_in_progress))
 							{
-								if(!forced_mount && View_Find("game_plugin") != 0)
+								if(!forced_mount && game_name())
 								{
 									sprintf(templn, "<H3>%s : <a href=\"/mount.ps3/unmount\">", STR_UNMOUNTGAME); strcat(buffer, templn);
-									char g[0x120];
-									game_interface = (game_plugin_interface *)plugin_GetInterface(View_Find("game_plugin"),1);
-									game_interface->DoUnk8(g);
-									sprintf(templn, "%s %s</a></H3><hr>", g+4); strcat(buffer, templn);
-									sprintf(templn, "<a href=\"/mount_ps3%s\">", param+plen); strcat(buffer, templn);
+									game_name(); sprintf(templn, "%s %s", _game_name+4); strcat(buffer, templn);
+									sprintf(templn, "</a></H3><hr><a href=\"/mount_ps3%s\">", param+plen); strcat(buffer, templn);
 								}
 								else
 									mounted=mount_with_mm(param+plen, 1);
