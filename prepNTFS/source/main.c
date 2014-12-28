@@ -11,6 +11,7 @@
 #include <sys/file.h>
 #include <dirent.h>
 #include <unistd.h>
+#include <sys/process.h>
 
 #include <io/pad.h>
 
@@ -617,7 +618,7 @@ int main(int argc, const char* argv[])
     }
     ioPadEnd();
 
-    if(button) ;
+    if(button) ; // skip removal of .ntfs[ files
     else
 //---
 
@@ -632,7 +633,7 @@ int main(int argc, const char* argv[])
     }
 
 	mountCount = ntfsMountAll(&mounts, NTFS_DEFAULT | NTFS_RECOVER | NTFS_READ_ONLY);
-	if (mountCount <= 0) return 0;
+	if (mountCount <= 0) goto exit;
 
 	for (int profile = 0; profile < 5; profile++)
 	{
@@ -829,13 +830,37 @@ int main(int argc, const char* argv[])
 				}
 			}
 		}
-    }
+	}
+
+exit:
 	for (u8 u = 0; u < mountCount; u++) ntfsUnmount(mounts[u].name, 1);
+
 
 	// force refresh xml
 	int refresh_xml=-1;
 	refresh_xml=connect_to_webman();
 	if(refresh_xml>=0) ssend(refresh_xml, "GET /refresh.ps3 HTTP/1.0\r\n");
+
+	// launch RELOAD.SELF
+	char self_path[1024] = "";
+	if(argc > 0 && argv)
+	{
+		if(!strncmp(argv[0], "/dev_hdd0/game/", 15))
+		{
+			int n;
+
+			strcpy(self_path, argv[0]);
+
+			n = 15; while(self_path[n] != '/' && self_path[n] != 0) n++;
+
+			if(self_path[n] == '/') self_path[n] = 0;
+
+			strcat(self_path, "/USRDIR/RELOAD.SELF");
+		}
+	}
+
+	if(file_exists(self_path))
+		sysProcessExitSpawn2(self_path, NULL, NULL, NULL, 0, 1001, SYS_PROCESS_SPAWN_STACK_SIZE_1M);
 
 	return 0;
 }

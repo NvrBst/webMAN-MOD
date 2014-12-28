@@ -905,6 +905,8 @@ void show_msg(char* msg)
 	if(!vshtask_notify)
 		vshtask_notify = (void*)((int)getNIDfunc("vshtask", 0xA02D46E7));
 
+	if(strlen(msg)>200) msg[200]=0;
+
 	if(vshtask_notify)
 		vshtask_notify(0, msg);
 }
@@ -922,20 +924,8 @@ char* game_name()
     return h;
 }
 
+
 /*
-void log(char * buffer)
-{
-	console_write(buffer);
-	int fd;
-
-	if(cellFsOpen("/dev_hdd0/plugins/webMAN_MOD.log", CELL_FS_O_RDWR|CELL_FS_O_CREAT|CELL_FS_O_APPEND, &fd, NULL, 0) == CELL_OK)
-	{
-		uint64_t nrw; int size = strlen(buffer);
-		cellFsWrite(fd, buffer, size, &nrw);
-	}
-	cellFsClose(fd);
-}
-
 void show_msg2(char* msg) // usage: show_msg2(L"text");
 {
 	if(View_Find("xmb_plugin") != 0)
@@ -968,9 +958,35 @@ void saveBMP()
 #endif
 
 #ifdef VIDEO_REC
+/*
+void log(char * buffer)
+{
+	console_write(buffer);
+	int fd;
+
+	if(cellFsOpen("/dev_hdd0/plugins/webMAN_MOD.log", CELL_FS_O_RDWR|CELL_FS_O_CREAT|CELL_FS_O_APPEND, &fd, NULL, 0) == CELL_OK)
+	{
+		uint64_t nrw; int size = strlen(buffer);
+		cellFsWrite(fd, buffer, size, &nrw);
+	}
+	cellFsClose(fd);
+}
+*/
 bool rec_start()
 {
 	if(game_name()==0) return false; // XMB
+
+	vsh_E7C34044 = (void*)((int)getNIDfunc("vsh",0xE7C34044));	// getMemoryContainer
+    reco_open = (void*)((int)getNIDfunc("vshmain",0xBEF63A14));	// open memory container
+	reco_open -= (50*2);
+
+	// fetch recording utility vsh options
+	//int* func_start = (int*&)(*((int*&)reco_open));
+    int* func_start = (int*)(*((int*)reco_open));
+	func_start += 3;
+	int dword1 = ((*func_start) & 0x0000FFFF) - 1;
+	func_start += 2;
+	recOpt = (uint32_t*)((dword1 << 16) + ((*func_start) & 0x0000FFFF));//(uint32_t*)0x72EEC0;
 
 	recOpt[1] = 0x4660;//CELL_REC_PARAM_VIDEO_FMT_M4HD_HD720_5000K_30FPS | 0x2100; //CELL_REC_PARAM_VIDEO_FMT_AVC_BL_MIDDLE_512K_30FPS
 	recOpt[2] = 0x0000; //CELL_REC_PARAM_AUDIO_FMT_AAC_96K
@@ -981,11 +997,16 @@ bool rec_start()
 	cellRtcGetCurrentClockLocalTime(&t);
 
 	cellFsMkdir((char*)"/dev_hdd0/plugins", 0777);
-
     game_name(); vsh_sprintf((char*)&recOpt[0x6],"/dev_hdd0/plugins/%s_%04d.%02d.%02d_%02d_%02d_%02d.mp4",_game_name+4,t.year,t.month,t.day,t.hour,t.minute,t.second);
 
 	reco_open(-1); // memory container
 	sys_timer_sleep(4);
+
+	if(View_Find("rec_plugin") == 0)
+	{
+		reco_open(-1); //retry //reco_open((vsh_E7C34044(1) == -1 ) ? vsh_E7C34044(0) : vsh_E7C34044(1));
+		sys_timer_sleep(3);
+	}
 
 	if(View_Find("rec_plugin") != 0)
 	{
@@ -995,27 +1016,10 @@ bool rec_start()
 			rec_interface->start();
 			return true;
 		}
-		else
-		{
-			return false;
-		}
 	}
-	else
-	{
-		reco_open(-1); //reco_open((vsh_E7C34044(1) == -1 ) ? vsh_E7C34044(0) : vsh_E7C34044(1));
-		sys_timer_sleep(3);
-		if(View_Find("rec_plugin") != 0)
-		{
-			rec_interface = (rec_plugin_interface *)plugin_GetInterface(View_Find("rec_plugin"),1);
-			rec_interface->start();
-			return true;
-		}
-		else
-		{
-			show_msg("No rec_plugin view found.");
-			return false;
-		}
-	}
+
+	show_msg("No rec_plugin view found.");
+	return false;
 }
 
 bool recording=false;
@@ -1026,22 +1030,15 @@ void toggle_rec()
 		if(recording == false)
 		{
 			show_msg("Recording started.");
-
-			if(rec_start()==false)
-			{
-				show_msg("Recording Error.");
-			}
-			else
-			{
-				recording = true;
-			}
+			recording = rec_start();
+			if(recording==false) show_msg("Recording Error.");
 		}
 		else
 		{
+			recording = false;
 			rec_interface->stop();
 			rec_interface->close(0);
 			show_msg("Recording finished.");
-			recording = false;
 		}
 	}
 }
@@ -5119,15 +5116,16 @@ again3:
 			{
 				if(strlen(param)>10)
 				{
+					param[211]=0; //limit message to 200 characters
 					sprintf(header, "HTTP/1.1 200 OK\r\n"
 									"Content-Type: text/html\r\n"
 									"Content-Length: %i\r\n\r\n"
 									"<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">"
 									"<html xmlns=\"http://www.w3.org/1999/xhtml\"><meta http-equiv=\"Content-type\" content=\"text/html;charset=UTF-8\">"
 									"<META HTTP-EQUIV=\"CACHE-CONTROL\" CONTENT=\"NO-CACHE\">"
-									"<html><body>Message sent: %s</body></html>", strlen(param)+312, param+11);
+									"<html><body>Message sent: %s</body></html>", strlen(param)+311, param+11);
 					ssend(conn_s, header);
-					show_msg((char*)param+11);
+					show_msg((char*)(param+11));
 				}
 				sclose(&conn_s);
 				loading_html--;
@@ -5670,12 +5668,12 @@ restart:
 					uint32_t blockSize;
 					uint64_t freeSize;
 					cellFsGetFreeSize((char*)"/dev_hdd0", &blockSize, &freeSize);
-#ifndef LITE_EDITION
+
 					if(game_name())
 					{
 						sprintf(templn, "<hr><H2>%s %s</H2>", _game_name+4); strcat(buffer, templn);
 					}
-#endif
+
 					sprintf(templn, "<hr><font size=42px><b>CPU: %i°C (MAX: %i°C)<br>"
 															"RSX: %i°C<hr>"
 															"CPU: %i°F (MAX: %i°F)<br>"
@@ -6532,9 +6530,7 @@ just_leave:
 							{
 								if(!forced_mount && game_name())
 								{
-									sprintf(templn, "<H3>%s : <a href=\"/mount.ps3/unmount\">", STR_UNMOUNTGAME); strcat(buffer, templn);
-									game_name(); sprintf(templn, "%s %s", _game_name+4); strcat(buffer, templn);
-									sprintf(templn, "</a></H3><hr><a href=\"/mount_ps3%s\">", param+plen); strcat(buffer, templn);
+									sprintf(templn, "<H3>%s : <a href=\"/mount.ps3/unmount\">%s %s</a></H3><hr><a href=\"/mount_ps3%s\">", STR_UNMOUNTGAME, _game_name+4, _game_name+20, param+plen); strcat(buffer, templn);
 								}
 								else
 									mounted=mount_with_mm(param+plen, 1);
@@ -9003,7 +8999,7 @@ DEBUG  Menu Switcher : L3+L2+X
 						else
 						if(!(webman_config->combo & SHOW_IDPS) && (data.button[CELL_PAD_BTN_OFFSET_DIGITAL2] & CELL_PAD_CTRL_CIRCLE) ) // R2+O Show IDPS EID0+LV2
 						{
-							vshmain_is_ss_enabled = (void*)((int)getNIDfunc("vshmain", 0x981D7E9F));
+							vshmain_is_ss_enabled = (void*)((int)getNIDfunc("vshmain", 0x981D7E9F)); //is screenshot enabled?
 
 							if(vshmain_is_ss_enabled()==0)
 							{
@@ -9537,19 +9533,6 @@ static void wwwd_thread(uint64_t arg)
 	View_Find = (void*)((int)getNIDfunc("paf",0xF21655F3));
 	plugin_GetInterface = (void*)((int)getNIDfunc("paf",0x23AFB290));
 	vsh_sprintf = (void*)((int)getNIDfunc("stdc",0x273B9711)); // sprintf
-
-#ifdef VIDEO_REC
-	reco_open = (void*)((int)getNIDfunc("vshmain",0xBEF63A14));
-	reco_open -= (50*2);
-
-	// fetch recording utility vsh options
-	//int* func_start = (int*&)(*((int*&)reco_open));
-    int* func_start = *reco_open;
-	func_start += 3;
-	int dword1 = ((*func_start) & 0x0000FFFF) - 1;
-	func_start += 2;
-	recOpt = (uint32_t*)((dword1 << 16) + ((*func_start) & 0x0000FFFF));//(uint32_t*)0x72EEC0;
-#endif
 
 	//pokeq(0x8000000000003560ULL, 0x386000014E800020ULL); // li r3, 0 / blr
 	//pokeq(0x8000000000003D90ULL, 0x386000014E800020ULL); // li r3, 0 / blr
