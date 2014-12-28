@@ -32,22 +32,30 @@
 #include <time.h>
 #include <unistd.h>
 
-//#define ENGLISH_ONLY 1 // uncomment for english only version
-//#define USE_DEBUG 1
-//#define EXTRA_FEAT 1
-//#define VIDEO_REC 1   //not working
+//#define ENGLISH_ONLY	1	// uncomment for english only version
+//#define USE_DEBUG		1
+//#define EXTRA_FEAT	1
+//#define VIDEO_REC		1	//not working
 
-//#define CCAPI 1		// uncomment for ccapi release
-#define COBRA_ONLY 1	// comment out for ccapi/non-cobra release
-//#define REX_ONLY   1	// shortcuts for REBUG REX CFWs / comment out for usual CFW
-//#define LITE_EDITION  1	// no ps3netsrv support, smaller memory footprint
+//#define CCAPI			1	// uncomment for ccapi release
+#define COBRA_ONLY		1	// comment out for ccapi/non-cobra release
+//#define REX_ONLY		1	// shortcuts for REBUG REX CFWs / comment out for usual CFW
+//#define LITE_EDITION	1	// no ps3netsrv support, smaller memory footprint
 
 #include "types.h"
 #include "common.h"
 #include "printf.h"
 #include "cobra/storage.h"
-#include "vsh/system_plugin.h"
 #include "vsh/game_plugin.h"
+//#include "vsh/xmb_plugin.h"
+
+#ifdef EXTRA_FEAT
+#include "vsh/system_plugin.h"
+#endif
+
+#ifdef VIDEO_REC
+#include "vsh/rec_plugin.h"
+#endif
 
 char _game_name[0x120];
 
@@ -427,8 +435,11 @@ char *strcasestr(const char *s1, const char *s2);
 int set_gamedata_status(u8 status, bool do_mount);
 void set_buffer_sizes();
 void get_idps_psid();
-void no_singstar_icon();
 void enable_dev_blind(char *msg);
+
+#ifdef EXTRA_FEAT
+void no_singstar_icon();
+#endif
 
 void reset_settings(void);
 int save_settings(void);
@@ -520,7 +531,9 @@ int lang_pos, fh;
 #define STR_NOSPOOF		"Disable firmware version spoofing"
 #define STR_NOGRP		"Disable grouping of content in \"webMAN Games\""
 #define STR_NOWMDN		"Disable startup notification of WebMAN on the XMB"
+#ifdef EXTRA_FEAT
 #define STR_NOSINGSTAR	"Remove SingStar icon"
+#endif
 #define STR_TITLEID		"Include the ID as part of the title of the game"
 #define STR_FANCTRL		"Enable dynamic fan control"
 #define STR_NOWARN		"Disable temperature warnings"
@@ -677,7 +690,9 @@ char STR_NOSETUP[150]		= "Disable webMAN Setup entry in \"webMAN Games\"";
 char STR_NOSPOOF[100]		= "Disable firmware version spoofing";
 char STR_NOGRP[100]			= "Disable grouping of content in \"webMAN Games\"";
 char STR_NOWMDN[200]		= "Disable startup notification of WebMAN on the XMB";
+#ifdef EXTRA_FEAT
 char STR_NOSINGSTAR[100]	= "Remove SingStar icon";
+#endif
 char STR_TITLEID[200]		= "Include the ID as part of the title of the game";
 char STR_FANCTRL[120]		= "Enable dynamic fan control";
 char STR_NOWARN[120]		= "Disable temperature warnings";
@@ -841,14 +856,6 @@ void show_msg(char* msg);
 //int (*_cellGcmIoOffsetToAddress)(uint32_t, void**) = NULL;
 int (*vshtask_notify)(int, const char *) = NULL;
 
-#ifndef LITE_EDITION
-//#include "vsh/xmb_plugin.h"
-
-#ifdef VIDEO_REC
-#include "vsh/rec_plugin.h"
-#endif
-#endif
-
 int (*vshmain_is_ss_enabled)() = NULL;
 int (*set_SSHT_)(int) = NULL;
 
@@ -915,7 +922,6 @@ char* game_name()
     return h;
 }
 
-#ifndef LITE_EDITION
 /*
 void log(char * buffer)
 {
@@ -940,6 +946,7 @@ void show_msg2(char* msg) // usage: show_msg2(L"text");
 }
 */
 
+#ifdef EXTRA_FEAT
 void saveBMP()
 {
 	if(game_name()==0) //XMB
@@ -958,6 +965,7 @@ void saveBMP()
 		show_msg(bmp);
 	}
 }
+#endif
 
 #ifdef VIDEO_REC
 bool rec_start()
@@ -1037,7 +1045,6 @@ void toggle_rec()
 		}
 	}
 }
-#endif
 #endif
 
 #ifndef COBRA_ONLY
@@ -2565,7 +2572,9 @@ void update_language()
 		language("STR_NOSPOOF", STR_NOSPOOF);
 		language("STR_NOGRP", STR_NOGRP);
 		language("STR_NOWMDN", STR_NOWMDN);
+#ifdef EXTRA_FEAT
 		language("STR_NOSINGSTAR", STR_NOSINGSTAR);
+#endif
 		language("STR_TITLEID", STR_TITLEID);
 		language("STR_FANCTRL", STR_FANCTRL);
 		language("STR_NOWARN", STR_NOWARN);
@@ -4008,7 +4017,9 @@ static void handleclient(u64 conn_s_p)
 			}
 		}
 
+#ifdef EXTRA_FEAT
 		if(webman_config->noss) no_singstar_icon();
+#endif
 
 #ifdef COBRA_ONLY
 		//if(cobra_mode)
@@ -5327,7 +5338,9 @@ restart:
 
 					if(strstr(param, "ns=1")) webman_config->noset=1;
 					if(strstr(param, "ng=1")) webman_config->nogrp=1;
+#ifdef EXTRA_FEAT
 					if(strstr(param, "ss=1")) {webman_config->noss=1; no_singstar_icon();}
+#endif
 
 #ifdef COBRA_ONLY
 					webman_config->cmask=0;
@@ -5578,7 +5591,6 @@ restart:
 					pos=strstr(param, "hurl=");
 					if(pos) get_value(webman_config->home_url, pos + 5, 255);
 				}
-
 
 				strcpy(buffer, "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\"><html xmlns=\"http://www.w3.org/1999/xhtml\"><meta http-equiv=\"Content-type\" content=\"text/html;charset=UTF-8\"><META HTTP-EQUIV=\"CACHE-CONTROL\" CONTENT=\"NO-CACHE\">");
 				if(strstr(param, "cpursx.ps3")) strcat(buffer, "<meta http-equiv=\"refresh\" content=\"5\">");
@@ -6265,8 +6277,9 @@ just_leave:
 						if(!(c_firmware==4.53f || c_firmware==4.66f))
        						add_check_box("nsp", "1", STR_NOSPOOF, NULL, (webman_config->nospoof), buffer);
 #endif
+#ifdef EXTRA_FEAT
 						add_check_box("ss", "1", STR_NOSINGSTAR,   NULL, (webman_config->noss), buffer);
-
+#endif
 						strcat(buffer, "<hr color=\"#0099FF\"/>");
 						add_check_box("ng" , "1", STR_NOGRP, NULL, (webman_config->nogrp), buffer);
 						add_check_box("ns" , "1", STR_NOSETUP,  NULL, (webman_config->noset), buffer);
@@ -8327,6 +8340,7 @@ static uint64_t peek_chunk(uint64_t start, uint64_t size, uint8_t* buf) // read 
 	show_msg((char*)"Memory dump completed!");
 */
 
+#ifdef EXTRA_FEAT
 void no_singstar_icon()
 {
 	int fd;
@@ -8348,6 +8362,7 @@ void no_singstar_icon()
 		cellFsClosedir(fd);
 	}
 }
+#endif
 
 void enable_dev_blind(char *msg)
 {
@@ -8771,7 +8786,7 @@ DEBUG  Menu Switcher : L3+L2+X
 						if(!(webman_config->combo & SHOW_TEMP) && (data.button[CELL_PAD_BTN_OFFSET_DIGITAL1] & (CELL_PAD_CTRL_R3 | CELL_PAD_CTRL_START))) // SELECT+START show temperatures / hdd space
 #endif
 						{
-#ifndef LITE_EDITION
+#ifdef EXTRA_FEAT
 							if(data.button[CELL_PAD_BTN_OFFSET_DIGITAL2] == (CELL_PAD_CTRL_R2 | CELL_PAD_CTRL_L2) )
 								saveBMP();
 							else
@@ -9523,7 +9538,6 @@ static void wwwd_thread(uint64_t arg)
 	plugin_GetInterface = (void*)((int)getNIDfunc("paf",0x23AFB290));
 	vsh_sprintf = (void*)((int)getNIDfunc("stdc",0x273B9711)); // sprintf
 
-#ifndef LITE_EDITION
 #ifdef VIDEO_REC
 	reco_open = (void*)((int)getNIDfunc("vshmain",0xBEF63A14));
 	reco_open -= (50*2);
@@ -9535,7 +9549,6 @@ static void wwwd_thread(uint64_t arg)
 	int dword1 = ((*func_start) & 0x0000FFFF) - 1;
 	func_start += 2;
 	recOpt = (uint32_t*)((dword1 << 16) + ((*func_start) & 0x0000FFFF));//(uint32_t*)0x72EEC0;
-#endif
 #endif
 
 	//pokeq(0x8000000000003560ULL, 0x386000014E800020ULL); // li r3, 0 / blr
@@ -10852,6 +10865,7 @@ static bool mount_with_mm(const char *_path0, u8 do_eject)
 		{
 			int special_mode=0;
 
+#ifdef EXTRA_FEAT
 			CellPadData data;
             for(u8 n=0; n<10; n++)
 			{
@@ -10864,6 +10878,7 @@ static bool mount_with_mm(const char *_path0, u8 do_eject)
 			}
 
 			if(special_mode) eject_insert(1, 0);
+#endif
 
 			// -- get TitleID from PARAM.SFO
 			char paramsfo[4096];

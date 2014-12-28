@@ -109,3 +109,7 @@ typedef struct
 } game_plugin_interface;
 
 game_plugin_interface * game_interface;
+
+int (*View_Find)(const char *) = 0;
+int (*plugin_GetInterface)(int,int) = 0;
+int (*vsh_sprintf)( char*, const char*,...) = 0;

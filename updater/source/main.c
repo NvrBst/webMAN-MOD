@@ -36,7 +36,16 @@ int CopyFile(char* path, char* path2)
 
 	ret= sysLv2FsStat(path, &stat);
 	if(ret) goto skip;
-	lenght = stat.st_size;
+
+	if(!memcmp(path, "/dev_hdd0/", 10) && !memcmp(path2, "/dev_hdd0/", 10))
+	{
+		if(strcmp(path, path2)==0) return ret;
+
+		sysLv2FsUnlink(path2);
+		return sysLv2FsLink(path, path2);
+	}
+
+    lenght = stat.st_size;
 
 	ret = sysLv2FsOpen(path, 0, &fd, S_IRWXU | S_IRWXG | S_IRWXO, NULL, 0);
 	if(ret) goto skip;
@@ -328,8 +337,29 @@ int main()
 	sysLv2FsMkdir("/dev_hdd0/game/XMBMANPLS/USRDIR/FEATURES", 0777);
 
 	CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webMAN.xml"    ,"/dev_hdd0/game/XMBMANPLS/USRDIR/FEATURES/webMAN.xml");
+	CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webMAN_AR.xml" ,"/dev_hdd0/game/XMBMANPLS/USRDIR/FEATURES/webMAN_AR.xml");
+	CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webMAN_CN.xml" ,"/dev_hdd0/game/XMBMANPLS/USRDIR/FEATURES/webMAN_CN.xml");
+	CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webMAN_DE.xml" ,"/dev_hdd0/game/XMBMANPLS/USRDIR/FEATURES/webMAN_DE.xml");
 	CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webMAN_ES.xml" ,"/dev_hdd0/game/XMBMANPLS/USRDIR/FEATURES/webMAN_ES.xml");
+	CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webMAN_FR.xml" ,"/dev_hdd0/game/XMBMANPLS/USRDIR/FEATURES/webMAN_FR.xml");
+	CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webMAN_GR.xml" ,"/dev_hdd0/game/XMBMANPLS/USRDIR/FEATURES/webMAN_GR.xml");
+	CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webMAN_DK.xml" ,"/dev_hdd0/game/XMBMANPLS/USRDIR/FEATURES/webMAN_DK.xml");
+	CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webMAN_HU.xml" ,"/dev_hdd0/game/XMBMANPLS/USRDIR/FEATURES/webMAN_HU.xml");
+	CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webMAN_HR.xml" ,"/dev_hdd0/game/XMBMANPLS/USRDIR/FEATURES/webMAN_HR.xml");
+	CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webMAN_BG.xml" ,"/dev_hdd0/game/XMBMANPLS/USRDIR/FEATURES/webMAN_BG.xml");
+	CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webMAN_CZ.xml" ,"/dev_hdd0/game/XMBMANPLS/USRDIR/FEATURES/webMAN_CZ.xml");
+	CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webMAN_SK.xml" ,"/dev_hdd0/game/XMBMANPLS/USRDIR/FEATURES/webMAN_SK.xml");
+	CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webMAN_IN.xml" ,"/dev_hdd0/game/XMBMANPLS/USRDIR/FEATURES/webMAN_IN.xml");
+	CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webMAN_JP.xml" ,"/dev_hdd0/game/XMBMANPLS/USRDIR/FEATURES/webMAN_JP.xml");
 	CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webMAN_KR.xml" ,"/dev_hdd0/game/XMBMANPLS/USRDIR/FEATURES/webMAN_KR.xml");
+	CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webMAN_IT.xml" ,"/dev_hdd0/game/XMBMANPLS/USRDIR/FEATURES/webMAN_IT.xml");
+	CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webMAN_NL.xml" ,"/dev_hdd0/game/XMBMANPLS/USRDIR/FEATURES/webMAN_NL.xml");
+	CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webMAN_PL.xml" ,"/dev_hdd0/game/XMBMANPLS/USRDIR/FEATURES/webMAN_PL.xml");
+	CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webMAN_PT.xml" ,"/dev_hdd0/game/XMBMANPLS/USRDIR/FEATURES/webMAN_PT.xml");
+	CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webMAN_RU.xml" ,"/dev_hdd0/game/XMBMANPLS/USRDIR/FEATURES/webMAN_RU.xml");
+	CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webMAN_TR.xml" ,"/dev_hdd0/game/XMBMANPLS/USRDIR/FEATURES/webMAN_TR.xml");
+	CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webMAN_ZH.xml" ,"/dev_hdd0/game/XMBMANPLS/USRDIR/FEATURES/webMAN_ZH.xml");
+
 	CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/bd.png"        ,"/dev_hdd0/game/XMBMANPLS/USRDIR/IMAGES/bd.png");
 	CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/devflash.png"  ,"/dev_hdd0/game/XMBMANPLS/USRDIR/IMAGES/devflash.png");
 	CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/gamedata.png"  ,"/dev_hdd0/game/XMBMANPLS/USRDIR/IMAGES/gamedata.png");

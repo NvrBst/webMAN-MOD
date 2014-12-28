@@ -40,7 +40,3 @@ typedef struct
 } system_plugin_interface;
 
 system_plugin_interface * system_interface;
-
-int (*plugin_GetInterface)(int,int) = 0;
-int (*View_Find)(const char *) = 0;
-int (*vsh_sprintf)( char*, const char*,...) = 0;
