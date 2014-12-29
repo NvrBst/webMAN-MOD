@@ -6754,9 +6754,10 @@ just_leave:
 						//strcat(buffer, "PS3 Game List:<br>");
 						if(strstr(param, "/index.ps3"))
 						{
-							if(!(webman_config->cmask & PS3)) strcat(buffer, "[<a href=\"/index.ps3?games\">GAMES</a>] ");
-							if(!(webman_config->cmask & PS2)) strcat(buffer, "[<a href=\"/index.ps3?PS2ISO\">PS2ISO</a>] ");
 #ifdef COBRA_ONLY
+							if(!(webman_config->cmask & PS3)) strcat(buffer, "[<a href=\"/index.ps3?games\">GAMES</a>] "
+																			 "[<a href=\"/index.ps3?PS3ISO\">PS3ISO</a>] ");
+							if(!(webman_config->cmask & PS2)) strcat(buffer, "[<a href=\"/index.ps3?PS2ISO\">PS2ISO</a>] ");
 							if(!(webman_config->cmask & PSP)) strcat(buffer, "[<a href=\"/index.ps3?PSPISO\">PSPISO</a>] ");
 							if(!(webman_config->cmask & PS1)) strcat(buffer, "[<a href=\"/index.ps3?PSXISO\">PSXISO</a>] ");
 							if(!(webman_config->cmask & BLU)) strcat(buffer, "[<a href=\"/index.ps3?BDISO\">BDISO</a>] ");
@@ -6768,6 +6769,9 @@ just_leave:
 							               "[<a href=\"/index.ps3?usb\">USB</a>] "
 							               "[<a href=\"/index.ps3?ntfs\">NTFS</a>]");
 #else
+							if(!(webman_config->cmask & PS3)) strcat(buffer, "[<a href=\"/index.ps3?games\">GAMES</a>] ");
+							if(!(webman_config->cmask & PS2)) strcat(buffer, "[<a href=\"/index.ps3?PS2ISO\">PS2ISO</a>] ");
+
 							strcat(buffer, "[<a href=\"/index.ps3?hdd\">HDD</a>] "
 							               "[<a href=\"/index.ps3?usb\">USB</a>]");
 #endif
