@@ -4544,9 +4544,9 @@ read_folder_xml:
 
 #ifdef COBRA_ONLY
 							is_iso = (flen > 4) && (
-								   ((strstr(tmp_param, "/PS3ISO") || strstr(tmp_param, "/PS2ISO") ||
+								   ((strstr(tmp_param, "/PS3ISO") || strstr(tmp_param, "/PS2ISO") || strstr(tmp_param, "/PSX") ||
 									 strstr(tmp_param, "/PSPISO") || strstr(tmp_param, "/ISO")    ||
-									 strstr(tmp_param, "/PSX")    || strstr(tmp_param, "/DVDISO") || strstr(tmp_param, "/BDISO"))
+									 strstr(tmp_param, "/DVDISO") || strstr(tmp_param, "/BDISO"))
 								&&
 								(
 									(strcasestr(entry.d_name + flen - 4, ".iso") ||
@@ -5059,6 +5059,8 @@ again3:
 	}
 
 	u8 is_ps3_http=0;
+	u8 is_cpursx=0;
+	u8 is_popup=0;
 
 	struct timeval tv;
 	tv.tv_usec = 0;
@@ -5117,20 +5119,10 @@ again3:
 				if(strlen(param)>10)
 				{
 					param[211]=0; //limit message to 200 characters
-					sprintf(header, "HTTP/1.1 200 OK\r\n"
-									"Content-Type: text/html\r\n"
-									"Content-Length: %i\r\n\r\n"
-									"<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">"
-									"<html xmlns=\"http://www.w3.org/1999/xhtml\"><meta http-equiv=\"Content-type\" content=\"text/html;charset=UTF-8\">"
-									"<META HTTP-EQUIV=\"CACHE-CONTROL\" CONTENT=\"NO-CACHE\">"
-									"<html><body>Message sent: %s</body></html>", strlen(param)+311, param+11);
-					ssend(conn_s, header);
 					show_msg((char*)(param+11));
 				}
-				sclose(&conn_s);
-				loading_html--;
-
-				sys_ppu_thread_exit(0);
+				is_popup=1; is_binary=0;
+				goto html_response;
 			}
 
 			if(strstr(param, "quit.ps3"))
@@ -5225,6 +5217,7 @@ restart:
 				}
 			}
 
+html_response:
 			prepare_header(header, param, is_binary);
 
 			if(strlen(param)>1 && param[strlen(param)-1]=='/') param[strlen(param)-1]=0;
@@ -5294,6 +5287,7 @@ restart:
 					loading_html--;
 					sys_ppu_thread_exit(0);
 				}
+				is_cpursx=1;
 			}
 			else
 			{
@@ -5590,8 +5584,11 @@ restart:
 					if(pos) get_value(webman_config->home_url, pos + 5, 255);
 				}
 
-				strcpy(buffer, "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\"><html xmlns=\"http://www.w3.org/1999/xhtml\"><meta http-equiv=\"Content-type\" content=\"text/html;charset=UTF-8\"><META HTTP-EQUIV=\"CACHE-CONTROL\" CONTENT=\"NO-CACHE\">");
-				if(strstr(param, "cpursx.ps3")) strcat(buffer, "<meta http-equiv=\"refresh\" content=\"5\">");
+				strcpy(buffer,  "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">"
+								"<html xmlns=\"http://www.w3.org/1999/xhtml\">"
+								"<meta http-equiv=\"Content-type\" content=\"text/html;charset=UTF-8\">"
+								"<META HTTP-EQUIV=\"CACHE-CONTROL\" CONTENT=\"NO-CACHE\">");
+				if(is_cpursx) strcat(buffer, "<meta http-equiv=\"refresh\" content=\"5\">");
 				strcat(buffer,	"<head><title>webMAN MOD</title>"
 								"<style type=\"text/css\"><!--\r\n"
 								"a:visited {color: #909090; text-decoration: none;} a:link:hover {color: #FFFFFF;}"
@@ -5616,15 +5613,12 @@ restart:
 							   ".gn{position: absolute;height: 38px;bottom: 0px;right: 7px;left: 7px;text-align: center;} --></style></head>"
 							   "<body bgcolor=\"#101010\"><font face=\"Courier New\"><b>");
 
-				bool mount_ps3 = (strstr(param, "mount_ps3")!=NULL), forced_mount = false;
+				bool mount_ps3 = !is_popup && (strstr(param, "mount_ps3")!=NULL), forced_mount = false;
 
 				if(mount_ps3 && game_name()) {mount_ps3=false; forced_mount=true;}
 
 				if(!mount_ps3)
 				{sprintf(templn, "webMAN " WM_VERSION " %s [<a href=\"/\">%s</a>] [<a href=\"/index.ps3\">%s</a>] [<a href=\"/setup.ps3\">%s</a>]</b>", STR_TRADBY, STR_FILES, STR_GAMES, STR_SETUP ); strcat(buffer, templn);}
-
-				if(strstr(param, "cpursx.ps3"))
-				{sprintf(templn, " [<a href=\"/shutdown.ps3\">%s</a>] [<a href=\"/restart.ps3\">%s</a>]", STR_SHUTDOWN, STR_RESTART ); strcat(buffer, templn);}
 
 				u32 t1=0, t2=0, t1f=0, t2f=0;
 				get_temperature(0, &t1); // 3E030000 -> 3E.03'C -> 62.(03/256)'C
@@ -5633,7 +5627,8 @@ restart:
 				t2=t2>>24;
 				t1f=(1.8f*(float)t1+32.f);
 				t2f=(1.8f*(float)t2+32.f);
-				if(strstr(param, "cpursx.ps3"))
+
+				if(is_cpursx)
 				{
 					_meminfo meminfo;
 					{system_call_1(SC_GET_FREE_MEM, (uint64_t) &meminfo);}
@@ -5669,6 +5664,8 @@ restart:
 					uint64_t freeSize;
 					cellFsGetFreeSize((char*)"/dev_hdd0", &blockSize, &freeSize);
 
+					sprintf(templn, " [<a href=\"/shutdown.ps3\">%s</a>] [<a href=\"/restart.ps3\">%s</a>]", STR_SHUTDOWN, STR_RESTART ); strcat(buffer, templn);
+
 					if(game_name())
 					{
 						sprintf(templn, "<hr><H2>%s %s</H2>", _game_name+4); strcat(buffer, templn);
@@ -5691,17 +5688,10 @@ restart:
 									eid0_idps[0], eid0_idps[1],
 									IDPS[0], IDPS[1]);
 					strcat(buffer, templn);
-
+					is_cpursx = 0; goto send_response;
 
 					//CellGcmConfig config; cellGcmGetConfiguration(&config);
 					//sprintf(templn, "localAddr: %x", (u32) config.localAddress); strcat(buffer, templn);
-
-					strcat(buffer, "</font></body></html>");
-					sprintf(templn, "Content-Length: %i\r\n\r\n", strlen(buffer)); strcat(header, templn);
-					ssend(conn_s, header);
-					ssend(conn_s, buffer);
-					buffer[0]=0;
-					continue;
 				}
 				else if(!mount_ps3)
 				{
@@ -5726,6 +5716,11 @@ restart:
 									 STR_REFRESH, SUFIX2(profile), STR_REFRESH, SUFIX2(profile), STR_SHUTDOWN, STR_RESTART); strcat(buffer, templn);
 				}
 
+				if(is_popup)
+				{
+					sprintf(templn, "Message sent: %s", param+11); strcat(buffer, templn);
+					is_popup=0; goto send_response;
+				}
 				if(is_binary==2) // folder listing
 				{
 						u8 is_net = (param[1]=='n');
@@ -6507,10 +6502,6 @@ just_leave:
 							do_umount(true);
 
 							strcat(buffer, STR_GAMEUM);
-							if(mount_ps3)
-							{
-								strcat(buffer, "<script type=\"text/javascript\">window.close(this);</script>");
-							}
 						}
 						else
 						{
@@ -6518,12 +6509,10 @@ just_leave:
 								param[strchr(param, '?')-param]=0;
 
 							int plen=10;
-							if(strstr(param, "copy.ps3" )) plen=IS_COPY;
+							if(strstr(param, "copy.ps3")) plen=IS_COPY;
 
 							char target[512];
-							bool mounted=false;
-
-							max_mapped=0;
+							bool mounted=false; max_mapped=0;
 							is_binary=1;
 
 							if(!(plen==IS_COPY && !copy_in_progress))
@@ -6538,8 +6527,8 @@ just_leave:
 
 							if(mount_ps3)
 							{
-								strcat(buffer,	"<script type=\"text/javascript\">window.close(this);</script>"
-												"</font></body></html>");
+								is_busy=false;
+								goto send_response;
 							}
 							else
 							{
@@ -6757,17 +6746,6 @@ just_leave:
 								}
 							}
 						}
-
-						if(buffer)
-						{
-							sprintf(templn, "Content-Length: %i\r\n\r\n", strlen(buffer)); strcat(header, templn);
-							ssend(conn_s, header);
-							ssend(conn_s, buffer);
-							buffer[0]=0;
-						}
-
-						is_busy=false;
-						if(mount_ps3) continue;
 					}
 					else
 					{
@@ -7074,9 +7052,9 @@ just_leave:
 											subfolder = 0;
 #ifdef COBRA_ONLY
 											is_iso = (flen > 4) && (
-													 ((strstr(tmp_param, "/PS3ISO") || strstr(tmp_param, "/PS2ISO") ||
+													 ((strstr(tmp_param, "/PS3ISO") || strstr(tmp_param, "/PS2ISO") || strstr(tmp_param, "/PSX") ||
 													   strstr(tmp_param, "/PSPISO") || strstr(tmp_param, "/ISO")||
-													   strstr(tmp_param, "/PSX") || strstr(tmp_param, "/DVDISO") || strstr(tmp_param, "/BDISO"))
+													   strstr(tmp_param, "/DVDISO") || strstr(tmp_param, "/BDISO"))
 													&&
 													(
 													  (strcasestr(entry.d_name + flen - 4, ".iso") ||
@@ -7277,7 +7255,11 @@ just_leave:
 					is_busy=false;
 				}
 
-				strcat(buffer, "</font></body></html>");
+send_response:
+				if(mount_ps3)
+					strcat(buffer, "<script type=\"text/javascript\">window.close(this);</script>"); //auto-close
+				else
+					strcat(buffer, "</font></body></html>"); //end-html
 
 				sprintf(templn, "Content-Length: %i\r\n\r\n", strlen(buffer)); strcat(header, templn);
 				ssend(conn_s, header);
@@ -7285,12 +7267,8 @@ just_leave:
 				buffer[0]=0;
 			}
 		}
-		//else break;
 
-		//if(served>125 || is_binary==1 || !working)
 		break;
-
-		//sys_timer_usleep(3200);
 	}
 
 #ifdef USE_DEBUG
