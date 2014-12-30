@@ -35,6 +35,8 @@
 //#define ENGLISH_ONLY	1	// uncomment for english only version
 //#define USE_DEBUG		1
 //#define EXTRA_FEAT	1
+//#define WEB_CHAT		1
+//#define NOSINGSTAR	1
 //#define VIDEO_REC		1	//not working
 
 //#define CCAPI			1	// uncomment for ccapi release
@@ -88,6 +90,13 @@ SYS_MODULE_STOP(wwwd_stop);
 #define WMTMP				"/dev_hdd0/tmp/wmtmp"				// webMAN work/temp folder
 #define WMNOSCAN			"/dev_hdd0/tmp/wm_noscan"			// webMAN config file
 
+#ifdef WEB_CHAT
+#define WMCHATFILE			"/dev_hdd0/tmp/wmtmp/wmchat.htm"
+#define DELETE_TURNOFF		{cellFsUnlink((char*)"/dev_hdd0/tmp/turnoff"); cellFsUnlink((char*)WMCHATFILE);}
+#else
+#define DELETE_TURNOFF		{cellFsUnlink((char*)"/dev_hdd0/tmp/turnoff");}
+#endif
+
 #define THREAD_NAME 		"wwwdt"
 #define THREAD_NAME_FTP 	"ftpdt"
 #define THREAD_NAME_NET 	"netiso"
@@ -135,22 +144,27 @@ SYS_MODULE_STOP(wwwd_stop);
 #define ssend(socket, str) send(socket, str, strlen(str), 0)
 #define getPort(p1x, p2x) ((p1x * 256) + p2x)
 
-#define _64KB_		65536
-#define KB			1024UL
-#define MB			1048576UL
+#define KB			   1024UL
+#define  _32KB_		  32768UL
+#define  _64KB_		  65536UL
+#define _128KB_		 131072UL
+#define _192KB_		 196608UL
+#define _256KB_		 262144UL
+#define  _1MB_		1048576UL
+#define _32MB_		33554432UL
 
 #define FAILED		-1
 
 #define FTP_RECV_SIZE  2048
 #define HTML_RECV_SIZE 1024
 
-static u32 BUFFER_SIZE_FTP	= ( 128*KB);
+static u32 BUFFER_SIZE_FTP	= ( _128KB_);
 
 static u32 BUFFER_SIZE		= ( 448*KB);
 static u32 BUFFER_SIZE_PSX	= ( 160*KB);
-static u32 BUFFER_SIZE_PSP	= (  32*KB);
-static u32 BUFFER_SIZE_PS2	= (  64*KB);
-static u32 BUFFER_SIZE_DVD	= ( 192*KB);
+static u32 BUFFER_SIZE_PSP	= (  _32KB_);
+static u32 BUFFER_SIZE_PS2	= (  _64KB_);
+static u32 BUFFER_SIZE_DVD	= ( _192KB_);
 static u32 BUFFER_SIZE_ALL	= ( 896*KB);
 
 #ifdef COBRA_ONLY
@@ -437,7 +451,7 @@ void set_buffer_sizes();
 void get_idps_psid();
 void enable_dev_blind(char *msg);
 
-#ifdef EXTRA_FEAT
+#ifdef NOSINGSTAR
 void no_singstar_icon();
 #endif
 
@@ -1157,7 +1171,7 @@ int filecopy(char *file1, char *file2, uint64_t maxbytes)
     int fd1, fd2;
     int ret=FAILED;
 
-    uint64_t chunk_size=64*KB; //64K
+    uint64_t chunk_size=_64KB_; //64K
 
 	if(cellFsStat(file1, &buf)!=CELL_FS_SUCCEEDED) return ret;
 
@@ -1745,7 +1759,7 @@ static int process_read_cd_2352_cmd(uint8_t *buf, uint32_t sector, uint32_t rema
 	{
 		sys_addr_t addr;
 
-		int ret = sys_memory_allocate(192*KB, SYS_MEMORY_PAGE_SIZE_64K, &addr);
+		int ret = sys_memory_allocate(_192KB_, SYS_MEMORY_PAGE_SIZE_64K, &addr);
 		if (ret != 0)
 		{
 			//DPRINTF("sys_memory_allocate failed: %x\n", ret);
@@ -1854,7 +1868,7 @@ static void netiso_thread(uint64_t arg)
 		tracks = NULL;
 	}
 
-	ret = sys_storage_ext_mount_discfile_proxy(result_port, command_queue, emu_mode, discsize, 256*KB, numtracks, tracks);
+	ret = sys_storage_ext_mount_discfile_proxy(result_port, command_queue, emu_mode, discsize, _256KB_, numtracks, tracks);
 	//DPRINTF("mount = %x\n", ret);
 
 	sys_memory_free((sys_addr_t)args);
@@ -2203,7 +2217,7 @@ static int process_read_cd_2352_cmd_iso(uint8_t *buf, uint32_t sector, uint32_t 
 	{
 		sys_addr_t addr;
 
-		int ret = sys_memory_allocate(192*KB, SYS_MEMORY_PAGE_SIZE_64K, &addr);
+		int ret = sys_memory_allocate(_192KB_, SYS_MEMORY_PAGE_SIZE_64K, &addr);
 		if (ret != 0)
 		{
 			//DPRINTF("sys_memory_allocate failed: %x\n", ret);
@@ -2326,7 +2340,7 @@ static void rawseciso_thread(uint64_t arg)
 		fake_eject_event();
 	}
 
-	ret = sys_storage_ext_mount_discfile_proxy(result_port, command_queue_ntfs, emu_mode, discsize, 256*KB, num_tracks, tracks);
+	ret = sys_storage_ext_mount_discfile_proxy(result_port, command_queue_ntfs, emu_mode, discsize, _256KB_, num_tracks, tracks);
 	//DPRINTF("mount = %x\n", ret);
 
 	fake_insert_event(real_disctype);
@@ -3930,7 +3944,7 @@ static void get_value(char *text, char *url, u16 size)
 	{
 		if(url[n]==0) break;
 		if(url[n]=='&') break;
-		if(url[n]=='+') text[n]=' ';
+		if(url[n]=='+') url[n]=' ';
 		text[n]=url[n];
 	}
 	text[n]=0;
@@ -4014,7 +4028,7 @@ static void handleclient(u64 conn_s_p)
 			}
 		}
 
-#ifdef EXTRA_FEAT
+#ifdef NOSINGSTAR
 		if(webman_config->noss) no_singstar_icon();
 #endif
 
@@ -4173,14 +4187,14 @@ static void handleclient(u64 conn_s_p)
 
 		_meminfo meminfo;
 		{system_call_1(SC_GET_FREE_MEM, (uint64_t) &meminfo);}
-		if((meminfo.avail)<( (BUFFER_SIZE_ALL) + 256*KB)) //leave if less than 1024+256KB memory
+		if((meminfo.avail)<( (BUFFER_SIZE_ALL) + _256KB_)) //leave if less than 1024+256KB memory
 		{
 			init_running=0;
 			sys_ppu_thread_exit(0);
 		}
 
 #ifdef USE_VM
-		if(sys_vm_memory_map(32*MB, 1*MB, SYS_MEMORY_CONTAINER_ID_INVALID, SYS_MEMORY_PAGE_SIZE_64K, SYS_VM_POLICY_AUTO_RECOMMENDED, &sysmem)!=CELL_OK)
+		if(sys_vm_memory_map(_32MB_, _1MB_, SYS_MEMORY_CONTAINER_ID_INVALID, SYS_MEMORY_PAGE_SIZE_64K, SYS_VM_POLICY_AUTO_RECOMMENDED, &sysmem)!=CELL_OK)
 		{
 			init_running=0;
 			sys_ppu_thread_exit(0);
@@ -5044,7 +5058,7 @@ continue_reading_folder_xml:
 	u8 retries=0;
 again3:
 	{system_call_1(SC_GET_FREE_MEM, (uint64_t) &meminfo);}
-	if((meminfo.avail)<( (BUFFER_SIZE) + 256*KB)) //leave if less than 256KB memory
+	if((meminfo.avail)<( (BUFFER_SIZE) + _256KB_)) //leave if less than 256KB memory
 	{
 #ifdef USE_DEBUG
 	ssend(debug_s, "!!! NOT ENOUGH MEMORY!\r\n");
@@ -5114,17 +5128,17 @@ again3:
 				param[pos]=0;
 			}
 
-			if(strstr(param, "popup.ps3"))
+#ifndef LITE_EDITION
+#ifdef WEB_CHAT
+			if(strstr(param, "/popup.ps3") || strstr(param, "/chat.ps3"))
+#else
+			if(strstr(param, "/popup.ps3"))
+#endif
 			{
-				if(strlen(param)>10)
-				{
-					param[211]=0; //limit message to 200 characters
-					show_msg((char*)(param+11));
-				}
 				is_popup=1; is_binary=0;
 				goto html_response;
 			}
-
+#endif
 			if(strstr(param, "quit.ps3"))
 			{
 				restore_fan(1);
@@ -5142,7 +5156,7 @@ again3:
 				sclose(&conn_s);
 				//sys_memory_free(sysmem);
 				working=0;
-				cellFsUnlink((char*)"/dev_hdd0/tmp/turnoff");
+				{DELETE_TURNOFF}
 				{system_call_4(SC_SYS_POWER,SYS_SHUTDOWN,0,0,0);}
 				sys_ppu_thread_exit(0);
 				break;
@@ -5153,7 +5167,7 @@ restart:
 				sclose(&conn_s);
 				//sys_memory_free(sysmem);
 				working=0;
-				cellFsUnlink((char*)"/dev_hdd0/tmp/turnoff");
+				{DELETE_TURNOFF}
  				if(strstr(param,"?0")==NULL) savefile((char*)WMNOSCAN, NULL, 0);
 				{system_call_3(SC_SYS_POWER, SYS_REBOOT, NULL, 0);}
 				sys_ppu_thread_exit(0);
@@ -5330,7 +5344,7 @@ html_response:
 
 					if(strstr(param, "ns=1")) webman_config->noset=1;
 					if(strstr(param, "ng=1")) webman_config->nogrp=1;
-#ifdef EXTRA_FEAT
+#ifdef NOSINGSTAR
 					if(strstr(param, "ss=1")) {webman_config->noss=1; no_singstar_icon();}
 #endif
 
@@ -5617,8 +5631,13 @@ html_response:
 
 				if(mount_ps3 && game_name()) {mount_ps3=false; forced_mount=true;}
 
+#ifdef WEB_CHAT
+				if(!mount_ps3)
+				{sprintf(templn, "webMAN " WM_VERSION " %s [<a href=\"/\">%s</a>] [<a href=\"/index.ps3\">%s</a>] [<a href=\"/chat.ps3\">Chat</a>] [<a href=\"/setup.ps3\">%s</a>]</b>", STR_TRADBY, STR_FILES, STR_GAMES, STR_SETUP); strcat(buffer, templn);}
+#else
 				if(!mount_ps3)
 				{sprintf(templn, "webMAN " WM_VERSION " %s [<a href=\"/\">%s</a>] [<a href=\"/index.ps3\">%s</a>] [<a href=\"/setup.ps3\">%s</a>]</b>", STR_TRADBY, STR_FILES, STR_GAMES, STR_SETUP ); strcat(buffer, templn);}
+#endif
 
 				u32 t1=0, t2=0, t1f=0, t2f=0;
 				get_temperature(0, &t1); // 3E030000 -> 3E.03'C -> 62.(03/256)'C
@@ -5716,11 +5735,84 @@ html_response:
 									 STR_REFRESH, SUFIX2(profile), STR_REFRESH, SUFIX2(profile), STR_SHUTDOWN, STR_RESTART); strcat(buffer, templn);
 				}
 
+#ifndef LITE_EDITION
 				if(is_popup)
 				{
-					sprintf(templn, "Message sent: %s", param+11); strcat(buffer, templn);
+#ifdef WEB_CHAT
+					if(strstr(param, "/chat.ps3"))
+					{
+						int fd; uint64_t msiz = 0; int size = 0;
+
+						// truncate msg log
+						if(cellFsStat((char*)WMCHATFILE, &buf)!=CELL_FS_SUCCEEDED || buf.st_size>0x8000UL || buf.st_size==0)
+						{
+							memset(tempstr, 0, 4096);
+							if(buf.st_size>0x8000UL)
+							{
+								if(cellFsOpen((char*)WMCHATFILE, CELL_FS_O_RDONLY, &fd, 0,0)==CELL_FS_SUCCEEDED)
+								{
+									cellFsLseek(fd, (buf.st_size-4080), CELL_FS_SEEK_SET, &msiz);
+									cellFsRead(fd, (void *)&tempstr, 4080, &msiz);
+									cellFsClose(fd);
+								}
+							}
+
+							cellFsUnlink((char*)WMCHATFILE);
+
+							if(cellFsOpen((char*)WMCHATFILE, CELL_FS_O_RDWR|CELL_FS_O_CREAT|CELL_FS_O_APPEND, &fd, NULL, 0) == CELL_OK)
+							{
+								strcpy(templn,	"<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">"
+												"<meta http-equiv=\"refresh\" content=\"10\">"
+												"<body bgcolor=\"#101010\" text=\"#c0c0c0\">"
+												"<script>window.onload=toBottom;function toBottom(){window.scrollTo(0, document.body.scrollHeight);}</script>\0");
+								if(tempstr[0]) strcat(templn, "<!--");
+								size = strlen(templn);
+								cellFsWrite(fd, templn, size, &msiz);
+								size = strlen(templn);
+                                if(size) cellFsWrite(fd, tempstr, size, &msiz);
+							}
+							cellFsClose(fd);
+                        }
+
+						// append msg
+						char msg[200]="", user[20]="guest\0"; char *pos;
+						if(conn_info_main.remote_adr.s_addr==0x7F000001) strcpy(user,"console\0");
+						if(strstr(param, "/chat.ps3?"))
+						{
+							pos=strstr(param, "u=");
+							if(pos) get_value(user, pos+2, 20);
+							pos=strstr(param, "m=");
+							if(pos) get_value(msg, pos+2, 200);
+
+							sprintf(templn, "<font color=\"red%s\"><b>%s</b></font><br>%s<br><!---->", user, user, msg);
+
+							if(cellFsOpen((char*)WMCHATFILE, CELL_FS_O_RDWR|CELL_FS_O_CREAT|CELL_FS_O_APPEND, &fd, NULL, 0) == CELL_OK)
+							{
+							    size = strlen(templn);
+							    cellFsWrite(fd, templn, size, &msiz);
+							}
+							cellFsClose(fd);
+
+							if(conn_info_main.remote_adr.s_addr!=0x7F000001) show_msg((char*)(msg));
+						}
+
+						// show msg log
+						sprintf(templn, "<iframe src=\"/dev_hdd0/tmp/wmtmp/wmchat.htm\" width=\"99%c\" height=\"300\"></iframe>",'%'); strcat(buffer, templn);
+
+						// prompt msg
+						sprintf(templn, "<hr><form name=\"f\" action=\"\"><input name=\"u\" type=text value=\"%s\" maxlength=10 size=5>:<input name=\"m\" type=text value=\"\" maxlength=500 size=80><input type=submit value=\"send\"></form><script>f.m.focus();</script>", user); strcat(buffer, templn);
+					}
+					else
+#endif
+					{
+						param[211]=0; //limit message to 200 characters
+						show_msg((char*)(param+11));
+						sprintf(templn, "Message sent: %s", param+11); strcat(buffer, templn);
+					}
+
 					is_popup=0; goto send_response;
 				}
+#endif
 				if(is_binary==2) // folder listing
 				{
 						u8 is_net = (param[1]=='n');
@@ -6019,7 +6111,7 @@ just_leave:
 									param[strchr(param+1, '/')-param]=0;
 
 								cellFsGetFreeSize(param, &blockSize, &freeSize);
-								sprintf(templn, "<hr title=\"%i Dir(s) %i %s %i %s\"><b><a href=\"%s\">%s</a>: %i %s</b><br>", (dirs-1), (idx-dirs), STR_FILES, dir_size<(1*MB)?(int)(dir_size>>10):(int)(dir_size>>20), dir_size<(1*MB)?STR_KILOBYTE:STR_MEGABYTE, param, param, (int)((blockSize*freeSize)>>20), STR_MBFREE);
+								sprintf(templn, "<hr title=\"%i Dir(s) %i %s %i %s\"><b><a href=\"%s\">%s</a>: %i %s</b><br>", (dirs-1), (idx-dirs), STR_FILES, dir_size<(_1MB_)?(int)(dir_size>>10):(int)(dir_size>>20), dir_size<(_1MB_)?STR_KILOBYTE:STR_MEGABYTE, param, param, (int)((blockSize*freeSize)>>20), STR_MBFREE);
 								strcat(buffer, templn);
 							}
 							else
@@ -6270,7 +6362,7 @@ just_leave:
 						if(!(c_firmware==4.53f || c_firmware==4.66f))
        						add_check_box("nsp", "1", STR_NOSPOOF, NULL, (webman_config->nospoof), buffer);
 #endif
-#ifdef EXTRA_FEAT
+#ifdef NOSINGSTAR
 						add_check_box("ss", "1", STR_NOSINGSTAR,   NULL, (webman_config->noss), buffer);
 #endif
 						strcat(buffer, "<hr color=\"#0099FF\"/>");
@@ -7520,7 +7612,7 @@ static void handleclient_ftp(u64 conn_s_ftp_p)
 							ssend(conn_s_ftp, FTP_OK_221);
 
 							working=0;
-							cellFsUnlink((char*)"/dev_hdd0/tmp/turnoff");
+							{DELETE_TURNOFF}
 							{system_call_4(SC_SYS_POWER,SYS_SHUTDOWN,0,0,0);}
 							sys_ppu_thread_exit(0);
 						}
@@ -7530,7 +7622,7 @@ static void handleclient_ftp(u64 conn_s_ftp_p)
 							ssend(conn_s_ftp, FTP_OK_221);
 
 							working=0;
-							cellFsUnlink((char*)"/dev_hdd0/tmp/turnoff");
+							{DELETE_TURNOFF}
 							if(strcasecmp(cmd, "REBOOT")) savefile((char*)WMNOSCAN, NULL, 0);
 							{system_call_3(SC_SYS_POWER, SYS_REBOOT, NULL, 0);}
 							sys_ppu_thread_exit(0);
@@ -8318,7 +8410,7 @@ static uint64_t peek_chunk(uint64_t start, uint64_t size, uint8_t* buf) // read 
 	show_msg((char*)"Memory dump completed!");
 */
 
-#ifdef EXTRA_FEAT
+#ifdef NOSINGSTAR
 void no_singstar_icon()
 {
 	int fd;
@@ -8891,7 +8983,7 @@ DEBUG  Menu Switcher : L3+L2+X
 						{
 							// power off
 							working=0;
-							cellFsUnlink((char*)"/dev_hdd0/tmp/turnoff");
+							{DELETE_TURNOFF}
 							{system_call_4(SC_SYS_POWER,SYS_SHUTDOWN,0,0,0);}
 							sys_ppu_thread_exit(0);
 						}
@@ -8937,7 +9029,7 @@ DEBUG  Menu Switcher : L3+L2+X
 						{
 							// soft reboot
 							working=0;
-							cellFsUnlink((char*)"/dev_hdd0/tmp/turnoff");
+							{DELETE_TURNOFF}
 							{system_call_4(SC_SYS_POWER,SYS_SOFT_REBOOT,0,0,0);}
 							sys_ppu_thread_exit(0);
 						}
@@ -9197,7 +9289,7 @@ DEBUG  Menu Switcher : L3+L2+X
 					{system_call_3(SC_RING_BUZZER, 0x1004, 0x4, 0x6);}
 reboot:
 					working=0;
-					cellFsUnlink((char*)"/dev_hdd0/tmp/turnoff");
+					{DELETE_TURNOFF}
 					savefile((char*)WMNOSCAN, NULL, 0);
 					{system_call_3(SC_SYS_POWER, SYS_REBOOT, NULL, 0);}
 					sys_ppu_thread_exit(0);
@@ -9442,53 +9534,53 @@ void set_buffer_sizes()
 #ifndef LITE_EDITION
 		BUFFER_SIZE_ALL = ( 320*KB);
 #else
-		BUFFER_SIZE_ALL = ( 256*KB);
+		BUFFER_SIZE_ALL = ( _256KB_);
 #endif
-		BUFFER_SIZE_FTP	= ( 128*KB);
-		//BUFFER_SIZE	= ( 128*KB);
-		BUFFER_SIZE_PSX	= (  32*KB);
-		BUFFER_SIZE_PSP	= (  32*KB);
-		BUFFER_SIZE_PS2	= (  64*KB);
-		BUFFER_SIZE_DVD	= (  64*KB);
+		BUFFER_SIZE_FTP	= ( _128KB_);
+		//BUFFER_SIZE	= ( _128KB_);
+		BUFFER_SIZE_PSX	= (  _32KB_);
+		BUFFER_SIZE_PSP	= (  _32KB_);
+		BUFFER_SIZE_PS2	= (  _64KB_);
+		BUFFER_SIZE_DVD	= (  _64KB_);
 	}
 	else
 	if(webman_config->foot==2) //MAX
 	{
 		BUFFER_SIZE_ALL = ( 1280*KB);
-		BUFFER_SIZE_FTP	= ( 256*KB);
+		BUFFER_SIZE_FTP	= ( _256KB_);
 		//BUFFER_SIZE	= ( 640*KB);
-		BUFFER_SIZE_PSX	= ( 192*KB);
-		BUFFER_SIZE_PSP	= (  64*KB);
-		BUFFER_SIZE_PS2	= ( 128*KB);
-		BUFFER_SIZE_DVD	= ( 256*KB);
+		BUFFER_SIZE_PSX	= ( _192KB_);
+		BUFFER_SIZE_PSP	= (  _64KB_);
+		BUFFER_SIZE_PS2	= ( _128KB_);
+		BUFFER_SIZE_DVD	= ( _256KB_);
 
-		if((webman_config->cmask & PS1)) BUFFER_SIZE_PSX	= (64*KB);
-		if((webman_config->cmask & PS2)) BUFFER_SIZE_PS2	= (64*KB);
-		if((webman_config->cmask & (BLU | DVD)) == (BLU | DVD)) BUFFER_SIZE_DVD = (64*KB);
+		if((webman_config->cmask & PS1)) BUFFER_SIZE_PSX	= (_64KB_);
+		if((webman_config->cmask & PS2)) BUFFER_SIZE_PS2	= (_64KB_);
+		if((webman_config->cmask & (BLU | DVD)) == (BLU | DVD)) BUFFER_SIZE_DVD = (_64KB_);
 	}
 	else
 	if(webman_config->foot==3) //MIN+
 	{
 		BUFFER_SIZE_ALL = ( 512*KB);
-		BUFFER_SIZE_FTP	= ( 128*KB);
+		BUFFER_SIZE_FTP	= ( _128KB_);
 		//BUFFER_SIZE	= ( 320*KB);
-		BUFFER_SIZE_PSX	= (  32*KB);
-		BUFFER_SIZE_PSP	= (  32*KB);
-		BUFFER_SIZE_PS2	= (  64*KB);
-		BUFFER_SIZE_DVD	= (  64*KB);
+		BUFFER_SIZE_PSX	= (  _32KB_);
+		BUFFER_SIZE_PSP	= (  _32KB_);
+		BUFFER_SIZE_PS2	= (  _64KB_);
+		BUFFER_SIZE_DVD	= (  _64KB_);
 	}
 	else	//STANDARD
 	{
 		BUFFER_SIZE_ALL = ( 896*KB);
-		BUFFER_SIZE_FTP	= ( 128*KB);
+		BUFFER_SIZE_FTP	= ( _128KB_);
 		//BUFFER_SIZE	= ( 448*KB);
 		BUFFER_SIZE_PSX	= ( 160*KB);
-		BUFFER_SIZE_PSP	= (  32*KB);
-		BUFFER_SIZE_PS2	= (  64*KB);
-		BUFFER_SIZE_DVD	= ( 192*KB);
+		BUFFER_SIZE_PSP	= (  _32KB_);
+		BUFFER_SIZE_PS2	= (  _64KB_);
+		BUFFER_SIZE_DVD	= ( _192KB_);
 
-		if((webman_config->cmask & PS1)) BUFFER_SIZE_PSX	= (32*KB);
-		if((webman_config->cmask & (BLU | DVD)) == (BLU | DVD)) BUFFER_SIZE_DVD = (64*KB);
+		if((webman_config->cmask & PS1)) BUFFER_SIZE_PSX	= (_32KB_);
+		if((webman_config->cmask & (BLU | DVD)) == (BLU | DVD)) BUFFER_SIZE_DVD = (_64KB_);
 	}
 
 	BUFFER_SIZE = BUFFER_SIZE_ALL - (BUFFER_SIZE_PSX + BUFFER_SIZE_PSP + BUFFER_SIZE_PS2 + BUFFER_SIZE_DVD);
@@ -10517,11 +10609,11 @@ static bool mount_with_mm(const char *_path0, u8 do_eject)
 				if(cellFsOpen(_path, CELL_FS_O_RDONLY, &fdw, 0, 0)==CELL_FS_SUCCEEDED)
 				{
 					sys_addr_t addr;
-					if(sys_memory_allocate(64*KB, SYS_MEMORY_PAGE_SIZE_64K, &addr)==0)
+					if(sys_memory_allocate(_64KB_, SYS_MEMORY_PAGE_SIZE_64K, &addr)==0)
 					{
 						u8* sprx_data=(u8*)addr;
 						cellFsLseek(fdw, 0, CELL_FS_SEEK_SET, &msiz);
-						cellFsRead(fdw, sprx_data, (64*KB), &msiz);
+						cellFsRead(fdw, sprx_data, (_64KB_), &msiz);
 						cellFsClose(fdw);
 
 						sys_ppu_thread_create(&thread_id_ntfs, rawseciso_thread, (uint64_t)addr, -0x1d8, 0x2000, SYS_PPU_THREAD_CREATE_JOINABLE, THREAD_NAME_NTFS);
@@ -10559,10 +10651,10 @@ static bool mount_with_mm(const char *_path0, u8 do_eject)
 			if(strstr(_path, "/net0") || strstr(_path, "/net1") || strstr(_path, "/net2"))
 			{
 				sys_addr_t addr;
-				if(sys_memory_allocate(64*KB, SYS_MEMORY_PAGE_SIZE_64K, &addr)==0)
+				if(sys_memory_allocate(_64KB_, SYS_MEMORY_PAGE_SIZE_64K, &addr)==0)
 				{
 					netiso_args *mynet_iso	= (netiso_args*)addr;
-					memset(mynet_iso, 0, 64*KB);
+					memset(mynet_iso, 0, _64KB_);
 
 					if( (strstr(_path, "/net0") && webman_config->netd0 && webman_config->neth0[0] && webman_config->netp0>0) ||
 						(strstr(_path, "/net1") && webman_config->netd1 && webman_config->neth1[0] && webman_config->netp1>0) ||
