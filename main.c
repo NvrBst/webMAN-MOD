@@ -5761,8 +5761,7 @@ html_response:
 
 							if(cellFsOpen((char*)WMCHATFILE, CELL_FS_O_RDWR|CELL_FS_O_CREAT|CELL_FS_O_APPEND, &fd, NULL, 0) == CELL_OK)
 							{
-								strcpy(templn,	"<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">"
-												"<meta http-equiv=\"refresh\" content=\"10\">"
+								strcpy(templn,	"<meta http-equiv=\"refresh\" content=\"10\">"
 												"<body bgcolor=\"#101010\" text=\"#c0c0c0\">"
 												"<script>window.onload=toBottom;function toBottom(){window.scrollTo(0, document.body.scrollHeight);}</script>\0");
 								if(tempstr[0]) strcat(templn, "<!--");
@@ -5797,10 +5796,15 @@ html_response:
 						}
 
 						// show msg log
-						sprintf(templn, "<iframe src=\"/dev_hdd0/tmp/wmtmp/wmchat.htm\" width=\"99%c\" height=\"300\"></iframe>",'%'); strcat(buffer, templn);
+						sprintf(templn, "<iframe src=\"%s\" width=\"99%c\" height=\"300\"></iframe>", WMCHATFILE,'%'); strcat(buffer, templn);
 
 						// prompt msg
-						sprintf(templn, "<hr><form name=\"f\" action=\"\"><input name=\"u\" type=text value=\"%s\" maxlength=10 size=5>:<input name=\"m\" type=text value=\"\" maxlength=500 size=80><input type=submit value=\"send\"></form><script>f.m.focus();</script>", user); strcat(buffer, templn);
+						sprintf(templn, "<hr>"
+										"<form name=\"f\" action=\"\">"
+										"<input name=\"u\" type=text value=\"%s\" maxlength=10 size=5>:"
+										"<input name=\"m\" type=text value=\"\" maxlength=500 size=80>"
+										"<input type=submit value=\"send\">"
+										"</form><script>f.m.focus();</script>", user); strcat(buffer, templn);
 					}
 					else
 #endif
