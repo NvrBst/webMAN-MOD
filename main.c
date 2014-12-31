@@ -6842,7 +6842,8 @@ just_leave:
 						if(strstr(param, "/index.ps3"))
 						{
 #ifdef COBRA_ONLY
-							if(!(webman_config->cmask & PS3)) strcat(buffer, "[<a href=\"/index.ps3?games\">GAMES</a>] "
+							if(!(webman_config->cmask & PS3)) strcat(buffer, "[<a href=\"/index.ps3?ps3\">PS3</a>] "
+																			 "[<a href=\"/index.ps3?games\">GAMES</a>] "
 																			 "[<a href=\"/index.ps3?PS3ISO\">PS3ISO</a>] ");
 							if(!(webman_config->cmask & PS2)) strcat(buffer, "[<a href=\"/index.ps3?PS2ISO\">PS2ISO</a>] ");
 							if(!(webman_config->cmask & PSP)) strcat(buffer, "[<a href=\"/index.ps3?PSPISO\">PSPISO</a>] ");
@@ -6939,6 +6940,7 @@ just_leave:
 							if(!b0 && strstr(param, "hdd" )) {filter0=0; b0=1;}
 							if(!b0 && strstr(param, "usb" )) {filter0=1; b0=2;}
 							if(!b1 && strstr(param, "games")) {filter1=0; b1=2;}
+							if(!b1 && strstr(param, "?ps3"))  {filter1=0; b1=3;}
 #ifdef COBRA_ONLY
 #ifndef LITE_EDITION
 							if(!b0 && strstr(param, "net" )) {filter0=7; b0=3;}
@@ -6966,7 +6968,7 @@ just_leave:
 									if(f0==9 && (!webman_config->netd2 || f1>6 || !cobra_mode)) break;
 
 									if(b0) {if(b0==2 && f0<7); else if(b0==3 && f0<NTFS); else if(filter0!=f0) continue;}
-									if(b1) {if(b1==2 && (f1<2 || f1>=10) && filter1<2); else if(filter1!=f1) continue;}
+									if(b1) {if(b1>=2 && (f1<b1 || f1>=10) && filter1<3); else if(filter1!=f1) continue;}
 									else
 									{
 										if( (webman_config->cmask & PS3) && (f1<3 || f1>=10)) continue;
