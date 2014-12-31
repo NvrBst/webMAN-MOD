@@ -4547,8 +4547,8 @@ read_folder_xml:
 							if(entry.d_name[0]=='.') continue;
 
 							int flen = strlen(entry.d_name);
-							char tmp_param[20];
-							strncpy(tmp_param, param, 20);
+							char tmp_param[8];
+							strncpy(tmp_param, param+strlen(drives[f0]), 8);
 							subfolder=0;
 
 #ifdef COBRA_ONLY
@@ -7138,8 +7138,8 @@ just_leave:
 											if(entry.d_name[0]=='.') continue;
 
 											int flen = strlen(entry.d_name);
-											char tmp_param[20];
-											strncpy(tmp_param, param, 20);
+											char tmp_param[8];
+											strncpy(tmp_param, param+strlen(drives[f0]), 8);
 											subfolder = 0;
 #ifdef COBRA_ONLY
 											is_iso = (flen > 4) && (
