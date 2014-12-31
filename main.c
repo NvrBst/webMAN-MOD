@@ -3723,7 +3723,7 @@ static void make_fb_xml(char *myxml)
 					"</Attributes>"
 					"<Items>"
 					"<Query class=\"type:x-xmb/folder-pixmap\" key=\"mgames\" attr=\"mgames\" "
-							"src=\"xmb://localhost/dev_hdd0/xmlhost/game_plugin/mygames.xml#seg_mygames\"/>"
+							"src=\"xmb://127.0.0.1/dev_hdd0/xmlhost/game_plugin/mygames.xml#seg_mygames\"/>"
 					"</Items>"
 					"</View>"
 					"</XMBML>", STR_MYGAMES, SUFIX2(profile), STR_LOADGAMES);
@@ -4758,10 +4758,10 @@ continue_reading_folder_xml:
 		if( !(webman_config->nogrp))
 		{
 			if(!(webman_config->cmask & PS3))  strcat(myxml_ps3, "</Attributes><Items>");
-			if(!(webman_config->cmask & PS2)) {strcat(myxml_ps2, "</Attributes><Items>"); if(webman_config->ps2l && cellFsStat((char*)PS2_CLASSIC_PLACEHOLDER, &buf)==CELL_FS_SUCCEEDED) strcat(myxml_ps2, "<Query class=\"type:x-xmb/folder-pixmap\" key=\"ps2_classic_launcher\" attr=\"ps2_classic_launcher\" src=\"xcb://localhost/query?limit=1&cond=Ae+Game:Game.titleId PS2U10000\"/>");}
+			if(!(webman_config->cmask & PS2)) {strcat(myxml_ps2, "</Attributes><Items>"); if(webman_config->ps2l && cellFsStat((char*)PS2_CLASSIC_PLACEHOLDER, &buf)==CELL_FS_SUCCEEDED) strcat(myxml_ps2, "<Query class=\"type:x-xmb/folder-pixmap\" key=\"ps2_classic_launcher\" attr=\"ps2_classic_launcher\" src=\"xcb://127.0.0.1/query?limit=1&cond=Ae+Game:Game.titleId PS2U10000\"/>");}
 #ifdef COBRA_ONLY
 			if(!(webman_config->cmask & PS1)) {strcat(myxml_psx, "</Attributes><Items>");}
-			if(!(webman_config->cmask & PSP)) {strcat(myxml_psp, "</Attributes><Items>"); if(webman_config->pspl && cellFsStat((char*)"/dev_hdd0/game/PSPC66820", &buf)==CELL_FS_SUCCEEDED) strcat(myxml_psp, "<Query class=\"type:x-xmb/folder-pixmap\" key=\"cobra_psp_launcher\" attr=\"cobra_psp_launcher\" src=\"xcb://localhost/query?limit=1&cond=Ae+Game:Game.titleId PSPC66820\"/>");}
+			if(!(webman_config->cmask & PSP)) {strcat(myxml_psp, "</Attributes><Items>"); if(webman_config->pspl && cellFsStat((char*)"/dev_hdd0/game/PSPC66820", &buf)==CELL_FS_SUCCEEDED) strcat(myxml_psp, "<Query class=\"type:x-xmb/folder-pixmap\" key=\"cobra_psp_launcher\" attr=\"cobra_psp_launcher\" src=\"xcb://127.0.0.1/query?limit=1&cond=Ae+Game:Game.titleId PSPC66820\"/>");}
 			if(!(webman_config->cmask & DVD) || !(webman_config->cmask & BLU)) strcat(myxml_dvd, "</Attributes><Items>");
 #endif
 		}
@@ -4820,10 +4820,10 @@ continue_reading_folder_xml:
             {
 				if(add_xmbm_plus)
 #ifdef ENGLISH_ONLY
-					strcat(myxml_items, "<Query class=\"type:x-xmb/folder-pixmap\" key=\"setup\" attr=\"setup\" src=\"xmb://localhost/dev_hdd0/game/XMBMANPLS/USRDIR/FEATURES/webMAN.xml#seg_webman_links_items\"/>");
+					strcat(myxml_items, "<Query class=\"type:x-xmb/folder-pixmap\" key=\"setup\" attr=\"setup\" src=\"xmb://127.0.0.1/dev_hdd0/game/XMBMANPLS/USRDIR/FEATURES/webMAN.xml#seg_webman_links_items\"/>");
 #else
 				{
-					sprintf(tempstr, "<Query class=\"type:x-xmb/folder-pixmap\" key=\"setup\" attr=\"setup\" src=\"xmb://localhost%s#seg_webman_links_items\"/>", templn);
+					sprintf(tempstr, "<Query class=\"type:x-xmb/folder-pixmap\" key=\"setup\" attr=\"setup\" src=\"xmb://127.0.0.1%s#seg_webman_links_items\"/>", templn);
 					strcat(myxml_items, tempstr);
 				}
 #endif
@@ -4935,10 +4935,10 @@ continue_reading_folder_xml:
 			{
 				if(add_xmbm_plus)
 #ifdef ENGLISH_ONLY
-					strcat(myxml, "<Query class=\"type:x-xmb/folder-pixmap\" key=\"setup\" attr=\"setup\" src=\"xmb://localhost/dev_hdd0/game/XMBMANPLS/USRDIR/FEATURES/webMAN.xml#seg_webman_links_items\"/>");
+					strcat(myxml, "<Query class=\"type:x-xmb/folder-pixmap\" key=\"setup\" attr=\"setup\" src=\"xmb://127.0.0.1/dev_hdd0/game/XMBMANPLS/USRDIR/FEATURES/webMAN.xml#seg_webman_links_items\"/>");
 #else
 				{
-					sprintf(templn, "<Query class=\"type:x-xmb/folder-pixmap\" key=\"setup\" attr=\"setup\" src=\"xmb://localhost/dev_hdd0/game/XMBMANPLS/USRDIR/FEATURES/webMAN%s.xml#seg_webman_links_items\"/>", lang_code);
+					sprintf(templn, "<Query class=\"type:x-xmb/folder-pixmap\" key=\"setup\" attr=\"setup\" src=\"xmb://127.0.0.1/dev_hdd0/game/XMBMANPLS/USRDIR/FEATURES/webMAN%s.xml#seg_webman_links_items\"/>", lang_code);
 					strcat(myxml, templn);
 				}
 #endif
@@ -5515,9 +5515,9 @@ html_response:
 #ifndef ENGLISH_ONLY
 					if(strstr(param, "&l=99")) webman_config->lang=99; // Unknown LANG_XX.TXT
 					else
-					for(uint8_t i=1; i<23; i++)
+					for(uint8_t i=22; i>0; i--)
 					{
-						sprintf(buffer, "&l=%i&", i); if(strstr(param, buffer)) {webman_config->lang=i; break;}
+						sprintf(buffer, "&l=%i", i); if(strstr(param, buffer)) {webman_config->lang=i; break;}
 					}
 
 					update_language();
