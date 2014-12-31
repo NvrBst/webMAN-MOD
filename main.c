@@ -4254,8 +4254,8 @@ static void handleclient(u64 conn_s_p)
 
 		// --- build group headers ---
 
-		char xml[128];
-		myxml[0]=0;
+		char xml[128]; u16 item_count[5];
+		myxml[0]=0; for(u8 i=0;i<5;i++) item_count[i]=0;
 
 		sprintf(xml, "/dev_hdd0/xmlhost/game_plugin/mygames.xml");
 		cellFsUnlink(xml);
@@ -4273,8 +4273,7 @@ static void handleclient(u64 conn_s_p)
 									"<Pair key=\"icon_notation\"><String>WNT_XmbItemBrowser</String></Pair>"
 									"<Pair key=\"title\"><String>PS2 Classic Launcher</String></Pair>"
 									"<Pair key=\"info\"><String>%s</String></Pair>"
-									"</Table>", STR_LAUNCHPS2);
-					strcat(myxml_ps2, templn);
+									"</Table>", STR_LAUNCHPS2); strcat(myxml_ps2, templn);
 				}
 			}
 #ifdef COBRA_ONLY
@@ -4287,8 +4286,7 @@ static void handleclient(u64 conn_s_p)
 									"<Pair key=\"icon_notation\"><String>WNT_XmbItemBrowser</String></Pair>"
 									"<Pair key=\"title\"><String>PSP Launcher</String></Pair>"
 									"<Pair key=\"info\"><String>%s</String></Pair>"
-									"</Table>", STR_LAUNCHPSP);
-					strcat(myxml_psp, templn);
+									"</Table>", STR_LAUNCHPSP); strcat(myxml_psp, templn);
 				}
 			}
 			if(!(webman_config->cmask & DVD) || !(webman_config->cmask & BLU)) strcpy(myxml_dvd, "<View id=\"seg_mygames_dvd_items\"><Attributes>");
@@ -4321,7 +4319,7 @@ static void handleclient(u64 conn_s_p)
 				if(f0==NTFS && f1>6) break;    // ntfs
 				if(f0==7 && (!webman_config->netd0 || f1>6 || !cobra_mode)) break; //net0
 				if(f0==8 && (!webman_config->netd1 || f1>6 || !cobra_mode)) break; //net1
-				if(f0==9 && (!webman_config->netd2 || f1>6 || !cobra_mode)) break; //net1
+				if(f0==9 && (!webman_config->netd2 || f1>6 || !cobra_mode)) break; //net2
 
 				if( (webman_config->cmask & PS3) && (f1<3 || f1>=10)) continue; // 0="GAMES", 1="GAMEZ", 2="PS3ISO", 10="video"
 				if( (webman_config->cmask & BLU) && f1==3) continue;
@@ -4499,18 +4497,15 @@ read_folder_xml:
 
 							get_cover_from_name(icon, data[v3_entry].name, tempID);
 							get_default_icon(icon, param, data[v3_entry].name, data[v3_entry].is_directory, ns, abort_connection);
+
 							strenc(enc_dir_name, data[v3_entry].name);
 
 							if(data[v3_entry].is_directory && (f1>1 && f1<10))
-							sprintf(tempstr, "<Table key=\"%04i\">"
-											 "<Pair key=\"icon\"><String>%s</String></Pair>"
-											 "<Pair key=\"title\"><String>%s</String></Pair>"
-											 "<Pair key=\"module_name\"><String>webbrowser_plugin</String></Pair>"
-											 "<Pair key=\"module_action\"><String>http://127.0.0.1/mount_ps3/net%i%s/%s/%s.iso?random=%i</String></Pair>"
-											 "<Pair key=\"info\"><String>/net%i%s</String></Pair>"
-											 "</Table>",
-									key, icon, templn, (f0-7), param, enc_dir_name, enc_dir_name, (int)pTick.tick, (f0-7), param);
-							else
+							{
+								sprintf(tempstr, "/%s.iso", enc_dir_name);
+								strcat(enc_dir_name, tempstr);
+							}
+
 							sprintf(tempstr, "<Table key=\"%04i\">"
 											 "<Pair key=\"icon\"><String>%s</String></Pair>"
 											 "<Pair key=\"title\"><String>%s</String></Pair>"
@@ -4530,13 +4525,13 @@ read_folder_xml:
 								{strcat(myxml_psp, tempstr); skey[key][0]='4';}
 								else*/
 								if(strstr(param, "/PSX") && strlen(myxml_psx)<(BUFFER_SIZE_PSX-1024))
-								{strcat(myxml_psx, tempstr); skey[key][0]='1';}
+								{strcat(myxml_psx, tempstr); skey[key][0]='1'; item_count[1]++;}
 								else
 								if((strstr(param, "/BDISO") || strstr(param, "/DVDISO")) && strlen(myxml_dvd)<(BUFFER_SIZE_DVD-1024))
-								{strcat(myxml_dvd, tempstr); skey[key][0]='0';}
+								{strcat(myxml_dvd, tempstr); skey[key][0]='0'; item_count[0]++;}
 								else
 								if(strlen(myxml_ps3)<(BUFFER_SIZE-5000))
-									strcat(myxml_ps3, tempstr);
+                                {strcat(myxml_ps3, tempstr); item_count[3]++;}
 							}
 							else
 							{
@@ -4691,17 +4686,12 @@ read_folder_xml:
 								get_default_icon(icon, param, entry.d_name, 0, ns, abort_connection);
 
 								strenc(enc_dir_name, entry.d_name);
-
 								if(subfolder)
-								sprintf(tempstr, "<Table key=\"%04i\">"
-												 "<Pair key=\"icon\"><String>%s</String></Pair>"
-												 "<Pair key=\"title\"><String>%s</String></Pair>"
-												 "<Pair key=\"module_name\"><String>webbrowser_plugin</String></Pair>"
-												 "<Pair key=\"module_action\"><String>http://127.0.0.1/mount_ps3%s/%s/%s%s%s?random=%i</String></Pair>"
-												 "<Pair key=\"info\"><String>%s%s</String></Pair>"
-												 "</Table>",
-									key, icon, templn, param, enc_dir_name, enc_dir_name, (subfolder & 2)?".ISO":".iso", (subfolder & 1)?"":".0", (int)pTick.tick, (f0==NTFS?(char*)"/ntfs/":param), (f0==NTFS?paths[f1]:""));
-								else
+								{
+									sprintf(tempstr, "/%s%s%s", enc_dir_name, (subfolder & 2)?".ISO":".iso", (subfolder & 1)?"":".0");
+									strcat(enc_dir_name, tempstr);
+								}
+
 								sprintf(tempstr, "<Table key=\"%04i\">"
 												 "<Pair key=\"icon\"><String>%s</String></Pair>"
 												 "<Pair key=\"title\"><String>%s</String></Pair>"
@@ -4715,25 +4705,22 @@ read_folder_xml:
 								sprintf(skey[key], "3%c%c%c%c%04i", templn[0], templn[1], templn[2], templn[3], key);
 								if( !(webman_config->nogrp) )
 								{
-									if(strstr(param, "/PS2ISO") && strlen(myxml_ps2)<(BUFFER_SIZE_PS2-1024))
-									{strcat(myxml_ps2, tempstr); skey[key][0]='2';}
+									if(strstr(tmp_param, "/PS2ISO") && strlen(myxml_ps2)<(BUFFER_SIZE_PS2-1024))
+									{strcat(myxml_ps2, tempstr); skey[key][0]='2'; item_count[2]++;}
 #ifdef COBRA_ONLY
 									else
-									if(strstr(param, "/PSPISO") && strlen(myxml_psp)<(BUFFER_SIZE_PSP-1024))
-									{strcat(myxml_psp, tempstr); skey[key][0]='4';}
+									if((strstr(tmp_param, "/PSPISO") || strstr(tmp_param, "/ISO")) && strlen(myxml_psp)<(BUFFER_SIZE_PSP-1024))
+									{strcat(myxml_psp, tempstr); skey[key][0]='4'; item_count[4]++;}
 									else
-									if(strstr(param, "/ISO") && strlen(myxml_psp)<(BUFFER_SIZE_PSP-1024))
-									{strcat(myxml_psp, tempstr); skey[key][0]='4';}
+									if((strstr(tmp_param, "/PSX") || !extcmp(entry.d_name, ".ntfs[PSXISO]", 13)) && strlen(myxml_psx)<(BUFFER_SIZE_PSX-1024))
+									{strcat(myxml_psx, tempstr); skey[key][0]='1'; item_count[1]++;}
 									else
-									if((strstr(param, "/PSX") || !extcmp(entry.d_name, ".ntfs[PSXISO]", 13)) && strlen(myxml_psx)<(BUFFER_SIZE_PSX-1024))
-									{strcat(myxml_psx, tempstr); skey[key][0]='1';}
-									else
-									if((strstr(param, "/BDISO") || strstr(param, "/DVDISO") || !extcmp(entry.d_name, ".ntfs[DVDISO]", 13) || !extcmp(entry.d_name, ".ntfs[BDISO]", 12)) && strlen(myxml_dvd)<(BUFFER_SIZE_DVD-1024))
-									{strcat(myxml_dvd, tempstr); skey[key][0]='0';}
+									if((strstr(tmp_param, "/BDISO") || strstr(tmp_param, "/DVDISO") || !extcmp(entry.d_name, ".ntfs[DVDISO]", 13) || !extcmp(entry.d_name, ".ntfs[BDISO]", 12)) && strlen(myxml_dvd)<(BUFFER_SIZE_DVD-1024))
+									{strcat(myxml_dvd, tempstr); skey[key][0]='0'; item_count[0]++;}
 #endif
 									else
 									if(strlen(myxml_ps3)<(BUFFER_SIZE-5000))
-										strcat(myxml_ps3, tempstr);
+                                    {strcat(myxml_ps3, tempstr); item_count[3]++;}
 								}
 								else
 								{
@@ -4906,31 +4893,35 @@ continue_reading_folder_xml:
 			if( !(webman_config->cmask & PS3)) {sprintf(templn, "<Table key=\"wm_ps3\">"
 																"<Pair key=\"icon\"><String>%s</String></Pair>"
 																"<Pair key=\"title\"><String>PLAYSTATION\xC2\xAE\x33</String></Pair>"
-																"<Pair key=\"info\"><String>%s</String></Pair>"
+																"<Pair key=\"info\"><String>%i %s</String></Pair>"
 																"<Pair key=\"str_noitem\"><String>msg_error_no_content</String></Pair>"
-																"</Table>", wm_icons[0], STR_PS3FORMAT); strcat(myxml, templn);}
+																"</Table>", wm_icons[0], item_count[3], STR_PS3FORMAT); strcat(myxml, templn);}
 			if( !(webman_config->cmask & PS2)) {sprintf(templn, "<Table key=\"wm_ps2\">"
 																"<Pair key=\"icon\"><String>%s</String></Pair>"
-																"<Pair key=\"title\"><String>PLAYSTATION\xC2\xAE\x32</String></Pair><Pair key=\"info\"><String>%s</String></Pair>"
+																"<Pair key=\"title\"><String>PLAYSTATION\xC2\xAE\x32</String></Pair>"
+																"<Pair key=\"info\"><String>%i %s</String></Pair>"
 																"<Pair key=\"str_noitem\"><String>msg_error_no_content</String></Pair>"
-																"</Table>", wm_icons[2], STR_PS2FORMAT); strcat(myxml, templn);}
+																"</Table>", wm_icons[2], item_count[2], STR_PS2FORMAT); strcat(myxml, templn);}
 #ifdef COBRA_ONLY
 			if( !(webman_config->cmask & PS1)) {sprintf(templn, "<Table key=\"wm_psx\">"
 																"<Pair key=\"icon\"><String>%s</String></Pair>"
-																"<Pair key=\"title\"><String>PLAYSTATION\xC2\xAE</String></Pair><Pair key=\"info\"><String>%s</String></Pair>"
+																"<Pair key=\"title\"><String>PLAYSTATION\xC2\xAE</String></Pair>"
+																"<Pair key=\"info\"><String>%i %s</String></Pair>"
 																"<Pair key=\"str_noitem\"><String>msg_error_no_content</String></Pair>"
-																"</Table>", wm_icons[1], STR_PS1FORMAT);strcat(myxml, templn);}
+																"</Table>", wm_icons[1], item_count[1], STR_PS1FORMAT);strcat(myxml, templn);}
 			if( !(webman_config->cmask & PSP)) {sprintf(templn, "<Table key=\"wm_psp\">"
 																"<Pair key=\"icon\"><String>%s</String></Pair>"
 																"<Pair key=\"title\"><String>PLAYSTATION\xC2\xAEPORTABLE</String></Pair>"
-																"<Pair key=\"info\"><String>%s</String></Pair><Pair key=\"str_noitem\"><String>msg_error_no_content</String></Pair>"
-																"</Table>", wm_icons[3], STR_PSPFORMAT);strcat(myxml, templn);}
+																"<Pair key=\"info\"><String>%i %s</String></Pair>"
+																"<Pair key=\"str_noitem\"><String>msg_error_no_content</String></Pair>"
+																"</Table>", wm_icons[3], item_count[4], STR_PSPFORMAT);strcat(myxml, templn);}
 			if( !(webman_config->cmask & DVD) ||
                 !(webman_config->cmask & BLU)) {sprintf(templn, "<Table key=\"wm_dvd\">"
 																"<Pair key=\"icon\"><String>%s</String></Pair>"
-																"<Pair key=\"title\"><String>%s</String></Pair><Pair key=\"info\"><String>%s</String></Pair>"
+																"<Pair key=\"title\"><String>%s</String></Pair>"
+																"<Pair key=\"info\"><String>%i %s</String></Pair>"
 																"<Pair key=\"str_noitem\"><String>msg_error_no_content</String></Pair>"
-																"</Table>", wm_icons[4], STR_VIDFORMAT, STR_VIDEO );strcat(myxml, templn);}
+																"</Table>", wm_icons[4], STR_VIDFORMAT, item_count[0], STR_VIDEO );strcat(myxml, templn);}
 #endif
 		}
 
@@ -7195,7 +7186,7 @@ just_leave:
 														if((uprofile==0) && strstr(entry.d_name, ").ntfs[")) continue;
 													}
 
-													if((strstr(param, "/PS3ISO") && f0<NTFS) || (f0==NTFS && f1==2 && !extcmp(entry.d_name, ".ntfs[PS3ISO]", 13)))
+													if((strstr(tmp_param, "/PS3ISO") && f0<NTFS) || (f0==NTFS && f1==2 && !extcmp(entry.d_name, ".ntfs[PS3ISO]", 13)))
 													{
 														int fs=0;
 														get_name(templn, entry.d_name, 1); strcat(templn, ".SFO\0");
