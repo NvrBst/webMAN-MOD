@@ -17,7 +17,6 @@
 #include "psp.h"
 #include "base_mds.h"
 
-
 #define TYPE_HOST2DEV (USB_REQTYPE_DIR_TO_DEVICE|USB_REQTYPE_TYPE_VENDOR)
 #define TYPE_DEV2HOST (USB_REQTYPE_DIR_TO_HOST|USB_REQTYPE_TYPE_VENDOR)
 
@@ -97,7 +96,6 @@ typedef struct
 	uint8_t pad[6];
 	ScsiTrackDescriptor tracks[1];
 } __attribute__((packed)) netiso_args;
-
 
 /*
 #define N_TITLE_IDS	102
@@ -1778,7 +1776,7 @@ int cobra_set_psp_umd2(char *path, char *umd_root, char *icon_save_path, uint64_
 	CellFsStat stat;
 	char umd_file[256];
 	char title_id[11];
-	char title_name[256];
+	//char title_name[256];
 	char *root;
 	unsigned int real_disctype, effective_disctype, iso_disctype;
 	int ret;

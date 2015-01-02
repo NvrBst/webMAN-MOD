@@ -36,13 +36,13 @@
 //#define USE_DEBUG		1
 //#define EXTRA_FEAT	1
 #define WEB_CHAT		1
-#define PS3MAPI			1
+#define PS3MAPI		1
 //#define NOSINGSTAR	1
 //#define SWAP_KERNEL	1
 //#define VIDEO_REC		1	//not working
 
 //#define CCAPI			1	// uncomment for ccapi release
-#define COBRA_ONLY		1	// comment out for ccapi/non-cobra release
+#define COBRA_ONLY	1	// comment out for ccapi/non-cobra release
 #define REX_ONLY		1	// shortcuts for REBUG REX CFWs / comment out for usual CFW
 //#define LITE_EDITION	1	// no ps3netsrv support, smaller memory footprint
 
@@ -65,8 +65,28 @@ char _game_name[0x120];
 char search_url[50] = "http://google.com/search?q=";
 
 #ifdef COBRA_ONLY
-#include "cobra/cobra.h"
-#include "cobra/netiso.h"
+ #include "cobra/cobra.h"
+ #include "cobra/netiso.h"
+
+ #ifdef LITE_EDITION
+    #define EDITION " [Lite]"
+ #else
+  #ifdef PS3MAPI
+    #define EDITION " [PS3M API]"
+  #else
+   #ifdef Rebug
+    #define EDITION " [Rebug]"
+   #else
+    #define EDITION ""
+   #endif
+  #endif
+ #endif
+#else
+ #ifdef CCAPI
+    #define EDITION " [CCAPI]"
+ #else
+    #define EDITION " [nonCobra]"
+ #endif
 #endif
 
 SYS_MODULE_INFO(WWWD, 0, 1, 0);
@@ -6144,7 +6164,7 @@ just_leave:
 								strcat(buffer, templn);
 							}
 							else
-								strcat(buffer, "<hr>webMAN - Simple Web Server<br>");
+								strcat(buffer, "<hr>webMAN - Simple Web Server" EDITION "<br>");
 						}
 
 				}
