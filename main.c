@@ -36,7 +36,7 @@
 //#define USE_DEBUG		1
 //#define EXTRA_FEAT	1
 #define WEB_CHAT		1
-#define PS3MAPI		1
+#define PS3MAPI			1
 //#define NOSINGSTAR	1
 //#define SWAP_KERNEL	1
 //#define VIDEO_REC		1	//not working
@@ -7416,18 +7416,15 @@ static void handleclient_ftp(u64 conn_s_ftp_p)
 
 	int connactive = 1;			// whether the ftp connection is active or not
 	int dataactive = 0;			// prevent the data connection from being closed at the end of the loop
-	int loggedin = 0;			// whether the user is logged in or not
+	u8 loggedin = 0;			// whether the user is logged in or not
 
 	char rnfr[MAX_PATH_LEN];				// stores the path/to/file for the RNFR command
 
-	char cwd[MAX_PATH_LEN];				// Current Working Directory
-	int rest = 0;				// for resuming file transfers
+	char cwd[MAX_PATH_LEN], tempcwd[MAX_PATH_LEN];	// Current Working Directory
+	int rest = 0;									// for resuming file transfers
 
 	char buffer[2048];
-	char filename[384];
-	char source[384];
-	char tempcwd[MAX_PATH_LEN];
-	char cmd[16], param[384];
+	char cmd[16], param[384], filename[384], source[384];
 	struct CellFsStat buf;
 	int fd;
 
@@ -9781,7 +9778,7 @@ static void handleclient_ps3mapi(u64 conn_s_ps3mapi_p)
 					if (strcasecmp(cmd, "SHUTDOWN") == 0)
 					{
 						working = 0;
-						cellFsUnlink((char*)"/dev_hdd0/tmp/turnoff");
+						{DELETE_TURNOFF}
 						ssend(conn_s_ps3mapi, PS3MAPI_OK_200);
 						{system_call_4(SC_SYS_POWER, SYS_SHUTDOWN, 0, 0, 0); }
 						sys_ppu_thread_exit(0);
@@ -9790,7 +9787,7 @@ static void handleclient_ps3mapi(u64 conn_s_ps3mapi_p)
 					{
 						ssend(conn_s_ps3mapi, PS3MAPI_OK_200);
 						working = 0;
-						cellFsUnlink((char*)"/dev_hdd0/tmp/turnoff");
+						{DELETE_TURNOFF}
 						{system_call_3(SC_SYS_POWER, SYS_REBOOT, NULL, 0); }
 						sys_ppu_thread_exit(0);
 					}
@@ -9798,7 +9795,7 @@ static void handleclient_ps3mapi(u64 conn_s_ps3mapi_p)
 					{
 						ssend(conn_s_ps3mapi, PS3MAPI_OK_200);
 						working = 0;
-						cellFsUnlink((char*)"/dev_hdd0/tmp/turnoff");
+						{DELETE_TURNOFF}
 						{system_call_3(SC_SYS_POWER, SYS_SOFT_REBOOT, NULL, 0); }
 						sys_ppu_thread_exit(0);
 					}
@@ -9806,7 +9803,7 @@ static void handleclient_ps3mapi(u64 conn_s_ps3mapi_p)
 					{
 						ssend(conn_s_ps3mapi, PS3MAPI_OK_200);
 						working = 0;
-						cellFsUnlink((char*)"/dev_hdd0/tmp/turnoff");
+						{DELETE_TURNOFF}
 						{system_call_3(SC_SYS_POWER, SYS_HARD_REBOOT, NULL, 0); }
 						sys_ppu_thread_exit(0);
 					}
@@ -10365,7 +10362,7 @@ again_debug:
 
 	led(GREEN, ON);
 
-//	cellFsUnlink((char*)"/dev_hdd0/tmp/turnoff");
+//	{DELETE_TURNOFF}
 
 	int list_s;
 
