@@ -60,6 +60,7 @@
 #endif
 
 char _game_name[0x120];
+char search_url[50] = "http://google.com/search?q=";
 
 #ifdef COBRA_ONLY
 #include "cobra/cobra.h"
@@ -81,7 +82,9 @@ SYS_MODULE_STOP(wwwd_stop);
 #define PS2_CLASSIC_ISO_PATH     "/dev_hdd0/game/PS2U10000/USRDIR/ISO.BIN.ENC"
 #define PS2_CLASSIC_ISO_ICON     "/dev_hdd0/game/PS2U10000/ICON0.PNG"
 
-#define WM_VERSION			"1.34.09 MOD"						// webMAN version
+#define MY_GAMES_XML			"/dev_hdd0/xmlhost/game_plugin/mygames.xml"
+
+#define WM_VERSION			"1.34.10 MOD"						// webMAN version
 #define MM_ROOT_STD			"/dev_hdd0/game/BLES80608/USRDIR"	// multiMAN root folder
 #define MM_ROOT_SSTL		"/dev_hdd0/game/NPEA00374/USRDIR"	// multiman SingStar® Stealth root folder
 #define MM_ROOT_STL			"/dev_hdd0/tmp/game_repo/main"		// stealthMAN root folder
@@ -152,6 +155,10 @@ SYS_MODULE_STOP(wwwd_stop);
 #define _256KB_		 262144UL
 #define  _1MB_		1048576UL
 #define _32MB_		33554432UL
+
+#define LINELEN			320 // html files
+#define LINELEN2		512 // html games
+#define MAX_PATH_LEN	512
 
 #define FAILED		-1
 
@@ -305,7 +312,7 @@ static u32 max_temp=MY_TEMP;
 typedef struct
 {
 	uint8_t last;
-	char game[MAX_LAST_GAMES][512];
+	char game[MAX_LAST_GAMES][MAX_PATH_LEN];
 } __attribute__((packed)) _lastgames;
 static _lastgames lastgames;
 
@@ -486,6 +493,7 @@ static char wm_icons[12][60]={"/dev_hdd0/tmp/wm_icons/icon_wm_album_ps3.png", //
                              };
 
 static bool covers_exist[7];
+static char local_ip[16] = "127.0.0.1";
 
 uint64_t convertH(char *val);
 
@@ -636,7 +644,7 @@ int lang_pos, fh;
 #define STR_MOVIETOM	"Movie to mount"
 #define STR_MOVIELOADED	"Movie loaded successfully. Start the movie from the disc icon<br>under the Video column.<hr/>Click <a href=\"/mount.ps3/unmount\">here</a> to unmount the movie."
 
-#define STR_XMLRF		"Game list refreshed (<a href=\"/dev_hdd0/xmlhost/game_plugin/mygames.xml\">mygames.xml</a>).<br>Click <a href=\"/restart.ps3\">here</a> to restart your PLAYSTATION®3 system now."
+#define STR_XMLRF		"Game list refreshed (<a href=\"" MY_GAMES_XML "\">mygames.xml</a>).<br>Click <a href=\"/restart.ps3\">here</a> to restart your PLAYSTATION®3 system now."
 
 #define STR_STORAGE		"System storage"
 #define STR_MEMORY		"Memory available"
@@ -795,7 +803,7 @@ char STR_LOADED2[50]		= "loaded   ";
 char STR_MOVIETOM[50]		= "Movie to mount";
 char STR_MOVIELOADED[250]	= "Movie loaded successfully. Start the movie from the disc icon<br>under the Video column.<hr/>Click <a href=\"/mount.ps3/unmount\">here</a> to unmount the movie.";
 
-char STR_XMLRF[200]			= "Game list refreshed (<a href=\"/dev_hdd0/xmlhost/game_plugin/mygames.xml\">mygames.xml</a>).<br>Click <a href=\"/restart.ps3\">here</a> to restart your PLAYSTATION®3 system now.";
+char STR_XMLRF[200]			= "Game list refreshed (<a href=\"" MY_GAMES_XML "\">mygames.xml</a>).<br>Click <a href=\"/restart.ps3\">here</a> to restart your PLAYSTATION®3 system now.";
 
 char STR_STORAGE[50]		= "System storage";
 char STR_MEMORY[50]			= "Memory available";
@@ -852,7 +860,7 @@ void block_online_servers();
 
 char h2a(char hex);
 void strenc(char *dst, char *src);
-int my_atoi(const char *c);
+int val(const char *c);
 
 static void do_umount(bool clean);
 static void do_umount_iso(void);
@@ -1240,7 +1248,7 @@ int del(char *path, bool recursive)
 	int fd;
 	u64 read;
 	CellFsDirent dir;
-	char entry[512];
+	char entry[MAX_PATH_LEN];
 
 	copy_aborted=false;
 
@@ -1277,8 +1285,8 @@ int folder_copy(char *path1, char *path2)
 	int fd;
 	u64 read;
 	CellFsDirent dir;
-	char source[512];
-	char target[512];
+	char source[MAX_PATH_LEN];
+	char target[MAX_PATH_LEN];
 
 	cellFsMkdir((char*)path2, 0777);
     copy_aborted=false;
@@ -1316,8 +1324,8 @@ int import_edats(char *path1, char *path2)
 	CellFsDirent dir;
 	struct CellFsStat buf;
 
-	char source[512];
-	char target[512];
+	char source[MAX_PATH_LEN];
+	char target[MAX_PATH_LEN];
 
 	cellFsMkdir((char*)path2, 0777);
 	if(cellFsStat(path2, &buf)!=CELL_FS_SUCCEEDED) return FAILED;
@@ -1376,7 +1384,7 @@ void strenc(char *dst, char *src)
 	dst[j] = '\0';
 }
 
-int my_atoi(const char *c)
+int val(const char *c)
 {
     int previous_result=0, result=0;
     int multiplier=1;
@@ -2696,6 +2704,8 @@ void update_language()
 		language("STR_NOTFOUND", STR_NOTFOUND);
 
 		language("COVERS_PATH", COVERS_PATH);
+		language("IP_ADDRESS", local_ip);
+		language("SEARCH_URL", search_url);
 	}
 
 	if(fh) {cellFsClose(fh); lang_pos=fh=0;}
@@ -2835,7 +2845,7 @@ void string_to_lv2(char* path, u64 addr)
 int set_gamedata_status(u8 status, bool do_mount)
 {
 	char msg[100];
-	char gamei_path[512]; u8 n;
+	char gamei_path[MAX_PATH_LEN]; u8 n;
 
 #ifndef COBRA_ONLY
 	sprintf(gamei_path, "//dev_hdd0/game");
@@ -3723,10 +3733,10 @@ static void make_fb_xml(char *myxml)
 					"</Attributes>"
 					"<Items>"
 					"<Query class=\"type:x-xmb/folder-pixmap\" key=\"mgames\" attr=\"mgames\" "
-							"src=\"xmb://127.0.0.1/dev_hdd0/xmlhost/game_plugin/mygames.xml#seg_mygames\"/>"
+							"src=\"xmb://localhost%s#seg_mygames\"/>"
 					"</Items>"
 					"</View>"
-					"</XMBML>", STR_MYGAMES, SUFIX2(profile), STR_LOADGAMES);
+					"</XMBML>", STR_MYGAMES, SUFIX2(profile), STR_LOADGAMES, MY_GAMES_XML);
 	savefile((char*)xml, (char*)myxml, strlen(myxml));
 }
 
@@ -3817,7 +3827,7 @@ int connect_to_remote_server(u8 server_id)
 static void mount_autoboot()
 {
 	struct CellFsStat s;
-	char path[512];
+	char path[MAX_PATH_LEN];
 
 	// get autoboot path
 	if(webman_config->autob &&
@@ -3832,7 +3842,7 @@ static void mount_autoboot()
 			if(cellFsOpen(path, CELL_FS_O_RDONLY, &fd, NULL, 0) == CELL_FS_SUCCEEDED)
 			{
 				u64 read_e = 0;
-				if(cellFsRead(fd, (void *)path, 512, &read_e) == CELL_FS_SUCCEEDED) path[read_e]=0;
+				if(cellFsRead(fd, (void *)path, MAX_PATH_LEN, &read_e) == CELL_FS_SUCCEEDED) path[read_e]=0;
 				cellFsClose(fd);
 			}
 			else
@@ -4171,14 +4181,18 @@ static void handleclient(u64 conn_s_p)
 		}
 #endif
 
+		char xml[128]; sprintf(xml, MY_GAMES_XML);
 
 		if(conn_s_p==START_DAEMON && ((webman_config->refr==1) || cellFsStat((char*)WMNOSCAN, &buf)==CELL_FS_SUCCEEDED))
 		{
 			cellFsUnlink((char*)WMNOSCAN);
 			mount_autoboot();
 
-			init_running=0;
-			if(cellFsStat("/dev_hdd0/xmlhost/game_plugin/fb.xml", &buf)==CELL_FS_SUCCEEDED) sys_ppu_thread_exit(0);
+			if(cellFsStat((char*)xml, &buf)==CELL_FS_SUCCEEDED)
+			{
+				init_running=0;
+				if(cellFsStat("/dev_hdd0/xmlhost/game_plugin/fb.xml", &buf)==CELL_FS_SUCCEEDED) sys_ppu_thread_exit(0);
+			}
 		}
 
 // --- begin update xml ---
@@ -4244,7 +4258,7 @@ static void handleclient(u64 conn_s_p)
 			init_running=0;
 
 			// start a new thread for refresh content at start up
-			if(!webman_config->refr)
+			if(!webman_config->refr || cellFsStat((char*)xml, &buf)!=CELL_FS_SUCCEEDED)
 			{
 				sys_ppu_thread_t id3;
 				sys_ppu_thread_create(&id3, handleclient, (u64)REFRESH_CONTENT, -0x1d8, 0x20000, 0, "wwwd2");
@@ -4254,10 +4268,9 @@ static void handleclient(u64 conn_s_p)
 
 		// --- build group headers ---
 
-		char xml[128]; u16 item_count[5];
+		u16 item_count[5];
 		myxml[0]=0; for(u8 i=0;i<5;i++) item_count[i]=0;
 
-		sprintf(xml, "/dev_hdd0/xmlhost/game_plugin/mygames.xml");
 		cellFsUnlink(xml);
 
 		key=0;
@@ -4409,7 +4422,7 @@ read_folder_xml:
 					int fdw, fs;
 					uint64_t msiz = 0;
 					u8 is_iso=0;
-					char icon[512];
+					char icon[MAX_PATH_LEN];
 					char tempID[16];
 #ifdef COBRA_ONLY
 #ifndef LITE_EDITION
@@ -4510,10 +4523,10 @@ read_folder_xml:
 											 "<Pair key=\"icon\"><String>%s</String></Pair>"
 											 "<Pair key=\"title\"><String>%s</String></Pair>"
 											 "<Pair key=\"module_name\"><String>webbrowser_plugin</String></Pair>"
-											 "<Pair key=\"module_action\"><String>http://127.0.0.1/mount_ps3/net%i%s/%s?random=%i</String></Pair>"
+											 "<Pair key=\"module_action\"><String>http://%s/mount_ps3/net%i%s/%s?random=%i</String></Pair>"
 											 "<Pair key=\"info\"><String>/net%i%s</String></Pair>"
 											 "</Table>",
-									key, icon, templn, (f0-7), param, enc_dir_name, (int)pTick.tick, (f0-7), param);
+									key, icon, templn, local_ip, (f0-7), param, enc_dir_name, (int)pTick.tick, (f0-7), param);
 
 							v3_entry++;
 
@@ -4696,10 +4709,10 @@ read_folder_xml:
 												 "<Pair key=\"icon\"><String>%s</String></Pair>"
 												 "<Pair key=\"title\"><String>%s</String></Pair>"
 												 "<Pair key=\"module_name\"><String>webbrowser_plugin</String></Pair>"
-												 "<Pair key=\"module_action\"><String>http://127.0.0.1/mount_ps3%s/%s?random=%i</String></Pair>"
+												 "<Pair key=\"module_action\"><String>http://%s/mount_ps3%s/%s?random=%i</String></Pair>"
 												 "<Pair key=\"info\"><String>%s%s</String></Pair>"
 												 "</Table>",
-									key, icon, templn, param, enc_dir_name, (int)pTick.tick, (f0==NTFS?(char*)"/ntfs/":param), (f0==NTFS?paths[f1]:""));
+									key, icon, templn, local_ip, param, enc_dir_name, (int)pTick.tick, (f0==NTFS?(char*)"/ntfs/":param), (f0==NTFS?paths[f1]:""));
 
 								if(strlen(templn)<5) strcat(templn, "     ");
 								sprintf(skey[key], "3%c%c%c%c%04i", templn[0], templn[1], templn[2], templn[3], key);
@@ -4820,10 +4833,10 @@ continue_reading_folder_xml:
             {
 				if(add_xmbm_plus)
 #ifdef ENGLISH_ONLY
-					strcat(myxml_items, "<Query class=\"type:x-xmb/folder-pixmap\" key=\"setup\" attr=\"setup\" src=\"xmb://127.0.0.1/dev_hdd0/game/XMBMANPLS/USRDIR/FEATURES/webMAN.xml#seg_webman_links_items\"/>");
+					strcat(myxml_items, "<Query class=\"type:x-xmb/folder-pixmap\" key=\"setup\" attr=\"setup\" src=\"xmb://localhost/dev_hdd0/game/XMBMANPLS/USRDIR/FEATURES/webMAN.xml#seg_webman_links_items\"/>");
 #else
 				{
-					sprintf(tempstr, "<Query class=\"type:x-xmb/folder-pixmap\" key=\"setup\" attr=\"setup\" src=\"xmb://127.0.0.1%s#seg_webman_links_items\"/>", templn);
+					sprintf(tempstr, "<Query class=\"type:x-xmb/folder-pixmap\" key=\"setup\" attr=\"setup\" src=\"xmb://localhost%s#seg_webman_links_items\"/>", templn);
 					strcat(myxml_items, tempstr);
 				}
 #endif
@@ -4877,16 +4890,16 @@ continue_reading_folder_xml:
 
 		// --- build xml headers
 
-		//sprintf(myxml, "<?xml version=\"1.0\" encoding=\"UTF-8\"?><XMBML version=\"1.0\"><View id=\"seg_mygames\"><Attributes><Table key=\"eject\"><Pair key=\"icon\"><String>/dev_flash/vsh/resource/explore/icon/icon_home.png</String></Pair><Pair key=\"title\"><String>Eject Disc</String></Pair><Pair key=\"module_name\"><String>webbrowser_plugin</String></Pair><Pair key=\"module_action\"><String>http://127.0.0.1/mount_ps3/unmount</String></Pair><Pair key=\"info\"><String>Unmount current game</String></Pair></Table><Table key=\"wm_ps3\"><Pair key=\"icon\"><String>%s</String></Pair><Pair key=\"title\"><String>PLAYSTATION\xC2\xAE\x33</String></Pair><Pair key=\"info\"><String>PS3 format games                              </String></Pair></Table><Table key=\"wm_ps2\"><Pair key=\"icon\"><String>%s</String></Pair><Pair key=\"title\"><String>PLAYSTATION\xC2\xAE\x32</String></Pair><Pair key=\"info\"><String>PS2 format games                              </String></Pair></Table><Table key=\"wm_psx\"><Pair key=\"icon\"><String>%s</String></Pair><Pair key=\"title\"><String>PLAYSTATION\xC2\xAE</String></Pair><Pair key=\"info\"><String>PSOne format games                              </String></Pair></Table><Table key=\"wm_dvd\"><Pair key=\"icon\"><String>%s</String></Pair><Pair key=\"title\"><String>Blu-ray\xE2\x84\xA2 and DVD</String></Pair><Pair key=\"info\"><String>Video content                              </String></Pair></Table></Attributes><Items><Item class=\"type:x-xmb/module-action\" key=\"eject\" attr=\"eject\"/><Query class=\"type:x-xmb/folder-pixmap\" key=\"wm_ps3\" attr=\"wm_ps3\" src=\"#seg_mygames_ps3_items\"/><Query class=\"type:x-xmb/folder-pixmap\" key=\"wm_ps2\" attr=\"wm_ps2\" src=\"#seg_mygames_ps2_items\"/><Query class=\"type:x-xmb/folder-pixmap\" key=\"wm_psx\" attr=\"wm_psx\" src=\"#seg_mygames_psx_items\"/><Query class=\"type:x-xmb/folder-pixmap\" key=\"wm_dvd\" attr=\"wm_dvd\" src=\"#seg_mygames_dvd_items\"/></Items></View>", ps3icon, ps2icon, psxicon, dvdicon);
 		sprintf(templn, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
 						"<XMBML version=\"1.0\"><View id=\"seg_mygames\">"
 						"<Attributes>"
 						"<Table key=\"eject\">"
 						"<Pair key=\"icon\"><String>%s</String></Pair>"
 						"<Pair key=\"title\"><String>%s</String></Pair>"
+						"<Pair key=\"info\"><String>%s</String></Pair>"
 						"<Pair key=\"module_name\"><String>webbrowser_plugin</String></Pair>"
-						"<Pair key=\"module_action\"><String>http://127.0.0.1/mount_ps3/unmount</String></Pair>"
-						"<Pair key=\"info\"><String>%s</String></Pair></Table>", wm_icons[11], STR_EJECTDISC, STR_UNMOUNTGAME); strcpy(myxml, templn);
+						"<Pair key=\"module_action\"><String>http://%s/mount_ps3/unmount</String></Pair>"
+						"</Table>", wm_icons[11], STR_EJECTDISC, STR_UNMOUNTGAME, local_ip); strcpy(myxml, templn);
 
 		if( !(webman_config->nogrp))
 		{
@@ -4926,7 +4939,20 @@ continue_reading_folder_xml:
 		}
 
 		if(!webman_config->noset)
-			{sprintf(templn, "<Table key=\"setup\"><Pair key=\"icon\"><String>%s</String></Pair><Pair key=\"title\"><String>%s</String></Pair><Pair key=\"module_name\"><String>webbrowser_plugin</String></Pair><Pair key=\"info\"><String>%s</String></Pair>%s</Table>", add_xmbm_plus ? "/dev_hdd0/game/XMBMANPLS/USRDIR/IMAGES/multiman.png" : wm_icons[10], STR_WMSETUP, STR_WMSETUP2, add_xmbm_plus ? "<Pair key=\"child\"><String>segment</String></Pair>" : "<Pair key=\"module_action\"><String>http://127.0.0.1/setup.ps3</String></Pair>");strcat(myxml, templn);}
+		{
+			sprintf(templn, "<Table key=\"setup\">"
+							 "<Pair key=\"icon\"><String>%s</String></Pair>"
+							 "<Pair key=\"title\"><String>%s</String></Pair>"
+							 "<Pair key=\"module_name\"><String>webbrowser_plugin</String></Pair>"
+							 "<Pair key=\"info\"><String>%s</String></Pair>",
+							 add_xmbm_plus ? "/dev_hdd0/game/XMBMANPLS/USRDIR/IMAGES/multiman.png" : wm_icons[10],
+							 STR_WMSETUP, STR_WMSETUP2); strcat(myxml, templn);
+
+			if(add_xmbm_plus)
+				strcat(myxml, "<Pair key=\"child\"><String>segment</String></Pair></Table>");
+			else
+				{sprintf(templn, "<Pair key=\"module_action\"><String>http://%s/setup.ps3</String></Pair></Table>", local_ip); strcat(myxml, templn);}
+		}
 
 		if(!(webman_config->nogrp))
 		{
@@ -4935,10 +4961,10 @@ continue_reading_folder_xml:
 			{
 				if(add_xmbm_plus)
 #ifdef ENGLISH_ONLY
-					strcat(myxml, "<Query class=\"type:x-xmb/folder-pixmap\" key=\"setup\" attr=\"setup\" src=\"xmb://127.0.0.1/dev_hdd0/game/XMBMANPLS/USRDIR/FEATURES/webMAN.xml#seg_webman_links_items\"/>");
+					strcat(myxml, "<Query class=\"type:x-xmb/folder-pixmap\" key=\"setup\" attr=\"setup\" src=\"xmb://localhost/dev_hdd0/game/XMBMANPLS/USRDIR/FEATURES/webMAN.xml#seg_webman_links_items\"/>");
 #else
 				{
-					sprintf(templn, "<Query class=\"type:x-xmb/folder-pixmap\" key=\"setup\" attr=\"setup\" src=\"xmb://127.0.0.1/dev_hdd0/game/XMBMANPLS/USRDIR/FEATURES/webMAN%s.xml#seg_webman_links_items\"/>", lang_code);
+					sprintf(templn, "<Query class=\"type:x-xmb/folder-pixmap\" key=\"setup\" attr=\"setup\" src=\"xmb://localhost/dev_hdd0/game/XMBMANPLS/USRDIR/FEATURES/webMAN%s.xml#seg_webman_links_items\"/>", lang_code);
 					strcat(myxml, templn);
 				}
 #endif
@@ -5225,7 +5251,7 @@ restart:
 html_response:
 			prepare_header(header, param, is_binary);
 
-			if(strlen(param)>1 && param[strlen(param)-1]=='/') param[strlen(param)-1]=0;
+			{u16 ulen=strlen(param); if(ulen>1 && param[ulen-1]=='/') param[ulen-1]=0;}
 			//sprintf(templn, "X-PS3-Info: %llu [%s]\r\n", (unsigned long long)c_len, param); strcat(header, templn);
 
 			//-- select content profile
@@ -5421,7 +5447,7 @@ html_response:
 							if(pos[n]!='&') {mytemp[n]=pos[n]; mytemp[n+1]=0;}
 							else break;
 						}
-						webman_config->minfan=my_atoi(mytemp);
+						webman_config->minfan=val(mytemp);
 						if(webman_config->minfan<MIN_FANSPEED) webman_config->minfan=MIN_FANSPEED;
 						if(webman_config->minfan>98) webman_config->minfan=99;
 					}
@@ -5441,7 +5467,7 @@ html_response:
 						char mytemp[3];
 						get_value(mytemp, pos + 5, 2);
 
-						webman_config->temp1=my_atoi(mytemp);
+						webman_config->temp1=val(mytemp);
 						if(webman_config->temp1<40) webman_config->temp1=40;
 						if(webman_config->temp1>83) webman_config->temp1=83;
 					}
@@ -5452,7 +5478,7 @@ html_response:
 						char mytemp[3];
 						get_value(mytemp, pos + 5, 2);
 
-						webman_config->ps2temp=my_atoi(mytemp);
+						webman_config->ps2temp=val(mytemp);
 						if(webman_config->ps2temp<20) webman_config->ps2temp=20;
 						if(webman_config->ps2temp>99) webman_config->ps2temp=99;
 					}
@@ -5463,7 +5489,7 @@ html_response:
 						char mytemp[3];
 						get_value(mytemp, pos + 5, 2);
 
-						webman_config->manu=my_atoi(mytemp);
+						webman_config->manu=val(mytemp);
 					}
 					if(webman_config->manu<20) webman_config->manu=20;
 
@@ -5541,7 +5567,7 @@ html_response:
 							if(pos)
 							{
 								get_value(netp, pos + 6, 6);
-								webman_config->netp0=my_atoi(netp);
+								webman_config->netp0=val(netp);
 							}
 						}
 
@@ -5554,7 +5580,7 @@ html_response:
 							if(pos)
 							{
 								get_value(netp, pos + 6, 6);
-								webman_config->netp1=my_atoi(netp);
+								webman_config->netp1=val(netp);
 							}
 						}
 
@@ -5567,7 +5593,7 @@ html_response:
 							if(pos)
 							{
 								get_value(netp, pos + 6, 6);
-								webman_config->netp2=my_atoi(netp);
+								webman_config->netp2=val(netp);
 							}
 						}
 
@@ -5605,9 +5631,11 @@ html_response:
 								"a.f:active {color: #F8F8F8; text-decoration: none;}"
 								"a.f:link {color: #D0D0D0; text-decoration: none;} a.f:link:hover {color: #FFFFFF;}"
 								"body,td,th {color: #f0f0f0;}.list {display:inline;}input:focus{border: 2px solid #0099FF;}"
-								".propfont {font-family: \"Courier New\", Courier, monospace;}"
 								".gc{float: left;overflow: hidden;position: relative;text-align: center;width: 280px;height: 260px;margin: 3px;border: 1px dashed grey;}"
-								".ic{position: absolute;top: 5px;right: 5px;left: 5px;bottom: 40px;}");
+								".ic{position: absolute;top: 5px;right: 5px;left: 5px;bottom: 40px;}"
+								".propfont {font-family: \"Courier New\", Courier, monospace;}");
+
+				if(!strstr(param, "/setup.ps3")) strcat(buffer, " td+td {text-align:right;}");
 
 				if(is_ps3_http)
 					strcat(buffer, ".gi{height: 210px;width: 267px;");
@@ -5678,7 +5706,9 @@ html_response:
 
 					if(game_name())
 					{
-						sprintf(templn, "<hr><H2>%s %s</H2>", _game_name+4); strcat(buffer, templn);
+						sprintf(templn, "<hr><H2><a href=\"%s", search_url); strcat(buffer, templn);
+						game_name(); sprintf(templn, "%s\">", _game_name+20); strcat(buffer, templn);
+						game_name(); sprintf(templn, "%s %s</a></H2>", _game_name+4); strcat(buffer, templn);
 					}
 
 					sprintf(templn, "<hr><font size=42px><b>CPU: %i°C (MAX: %i°C)<br>"
@@ -5824,7 +5854,7 @@ html_response:
 							u16 idx=0, dirs=0;;
 							u32 tlen=0;
 							sys_addr_t sysmem_html=0;
-							if(sys_memory_allocate((BUFFER_SIZE), SYS_MEMORY_PAGE_SIZE_64K, &sysmem_html)!=0)
+							if(sys_memory_allocate((is_busy?BUFFER_SIZE:BUFFER_SIZE_ALL), SYS_MEMORY_PAGE_SIZE_64K, &sysmem_html)!=0)
 							{
 								if(!is_net) cellFsClosedir(fd);
 								sclose(&conn_s);
@@ -5836,14 +5866,14 @@ html_response:
 
 							typedef struct
 							{
-								char 	path[512];
+								char 	path[LINELEN];
 							}
 							t_line_entries;
-							t_line_entries *line_entry	= (t_line_entries *)sysmem_html;
-							u16 max_entries=((BUFFER_SIZE))/512;
+							t_line_entries *line_entry = (t_line_entries *)sysmem_html;
+							u16 max_entries=((is_busy?BUFFER_SIZE:BUFFER_SIZE_ALL))/LINELEN;
 
-
-							strcat(buffer, "<table class=\"propfont\"><tr><td>");
+							if(param[1]!=NULL) {sprintf(templn, "<base href=\"%s/\">", param); strcat(buffer, templn);}
+                            strcat(buffer, "<table class=\"propfont\"><tr><td>");
 
 							strcpy(templn, param);
 							while(strchr(templn+1, '/'))
@@ -5863,7 +5893,7 @@ html_response:
 							}
 							sprintf(swap, "<a href=\"/mount.ps3%s\">%s</a>", param, templn); strcat(buffer, swap);
 
-                            strcat(buffer, ":</td><td></td><td></td></tr>");
+                            strcat(buffer, ":</td><td width=90>&nbsp;</td><td></td></tr>");
 							tlen=0;
 
 #ifdef COBRA_ONLY
@@ -5882,8 +5912,8 @@ html_response:
 									{
 										strcpy(templn, param); if(templn[strlen(templn)-1]=='/') templn[strlen(templn)-1]=0;
 										if(strrchr(templn, '/')) templn[strrchr(templn, '/')-templn]=0; if(strlen(templn)<6 && strlen(param)<8) {templn[0]='/'; templn[1]=0;}
-										sprintf(tempstr, "!00000<tr><td><a class=\"f\" href=\"%s\">..</a></td><td align=right>&nbsp; <a href=\"%s\">&lt;dir&gt;</a> &nbsp;</td><td>11-Nov-2006 11:11</td></tr>", templn, templn);
-										strncpy(line_entry[idx].path, tempstr, 512); idx++; dirs++;
+										sprintf(tempstr, "!00000<tr><td><a class=\"f\" href=\"%s\">..</a></td><td> <a href=\"%s\">&lt;dir&gt;</a> &nbsp; </td><td>11-Nov-2006 11:11</td></tr>", templn, templn);
+										strncpy(line_entry[idx].path, tempstr, LINELEN); idx++; dirs++;
 										tlen+=strlen(tempstr);
 
 										sys_addr_t data2=0;
@@ -5925,11 +5955,12 @@ html_response:
 											}
 											else
 												sprintf(fsize, "%llu %s", sz, sf);
-											snprintf(ename, 6, "%s    ", data[n].name);
+
+											snprintf(ename, 6, "%s    ", data[n].name); sprintf(templn, "%s", data[n].name);
 
 											sprintf(tempstr, "%c%c%c%c%c%c<tr>"
                                                              "<td><a%shref=\"%s\">%s</a></td>"
-                                                             "<td align=right>&nbsp; %s &nbsp;</td>"
+                                                             "<td> %s &nbsp; </td>"
                                                              "<td>%02i-%s-%04i %02i:%02i</td></tr>",
 											(data[n].is_directory) ? '0' : '1',
 											ename[0], ename[1], ename[2], ename[3], ename[4],
@@ -5938,7 +5969,7 @@ html_response:
 											fsize,
 											rDate.day, smonth[rDate.month-1], rDate.year,
 											rDate.hour, rDate.minute);
-											strncpy(line_entry[idx].path, tempstr, 512); idx++;
+											strncpy(line_entry[idx].path, tempstr, LINELEN); idx++;
 											tlen+=strlen(tempstr);
 
 											if(!working) break;
@@ -6037,11 +6068,12 @@ html_response:
 										sprintf(fsize, "<a href=\"/copy.ps3%s\">%llu %s</a>", templn, sz, sf);
 									else
 										sprintf(fsize, "%llu %s", sz, sf);
-									snprintf(ename, 6, "%s    ", entry.d_name);
+
+									snprintf(ename, 6, "%s    ", entry.d_name); sprintf(templn, "%s", entry.d_name);
 
 									sprintf(tempstr, "%c%c%c%c%c%c<tr>"
                                                      "<td><a%shref=\"%s\">%s</a></td>"
-                                                     "<td align=right>&nbsp; %s &nbsp;</td>"
+                                                     "<td> %s &nbsp; </td>"
                                                      "<td>%02i-%s-%04i %02i:%02i</td></tr>",
 									((buf.st_mode & S_IFDIR) != 0) ? '0' : '1',
 									ename[0], ename[1], ename[2], ename[3], ename[4],
@@ -6050,7 +6082,7 @@ html_response:
 									fsize,
 									rDate.day, smonth[rDate.month-1], rDate.year,
 									rDate.hour, rDate.minute);
-									strncpy(line_entry[idx].path, tempstr, 512); idx++;
+									strncpy(line_entry[idx].path, tempstr, LINELEN); idx++;
 									tlen+=strlen(tempstr);
 
 									if(!working) break;
@@ -6067,10 +6099,10 @@ just_leave:
 								{
 									sprintf(tempstr, "0net%i <tr>"
 															"<td><a class=\"f\" href=\"/net%i\">net%i (%s:%i)</a></td>"
-															"<td align=right>&nbsp; <a href=\"/mount.ps3/net%i\">&lt;dir&gt;</a> &nbsp;</td><td>11-Nov-2006 11:11</td>"
+															"<td> <a href=\"/mount.ps3/net%i\">&lt;dir&gt;</a> &nbsp; </td><td>11-Nov-2006 11:11</td>"
 															"</tr>", n, n, n, n==1 ? webman_config->neth1 : n==2 ? webman_config->neth2 : webman_config->neth0,
 																			  n==1 ? webman_config->netp1 : n==2 ? webman_config->netp2 : webman_config->netp0, n);
-									strncpy(line_entry[idx].path, tempstr, 512); idx++;
+									strncpy(line_entry[idx].path, tempstr, LINELEN); idx++;
 									tlen+=strlen(tempstr);
 								}
 							}
@@ -6598,7 +6630,7 @@ just_leave:
 							int plen=10;
 							if(strstr(param, "copy.ps3")) plen=IS_COPY;
 
-							char target[512];
+							char target[MAX_PATH_LEN];
 							bool mounted=false; max_mapped=0;
 							is_binary=1;
 
@@ -6924,11 +6956,11 @@ just_leave:
 
 							typedef struct
 							{
-								char 	path[512];
+								char 	path[LINELEN2];
 							}
 							t_line_entries;
 							t_line_entries *line_entry	= (t_line_entries *)sysmem_html;
-							u16 max_entries=((BUFFER_SIZE))/512;
+							u16 max_entries=((BUFFER_SIZE))/LINELEN2;
 
 							// filter html content
 							u8 filter0=0, filter1=0, b0=0, b1=0;
@@ -7029,7 +7061,7 @@ just_leave:
 									CellFsDirent entry;
 									u64 read_e;
 									u8 is_iso=0;
-									char icon[512];
+									char icon[MAX_PATH_LEN];
 									char tempID[16];
 									sys_addr_t data2=0;
 									int v3_entries=0;
@@ -7129,7 +7161,7 @@ just_leave:
 
 											v3_entry++;
 
-											strncpy(line_entry[idx].path, tempstr, 512); idx++;
+											strncpy(line_entry[idx].path, tempstr, LINELEN2); idx++;
 											tlen+=strlen(tempstr);
 											if(tlen>(BUFFER_SIZE-1024)) break;
 										}
@@ -7289,7 +7321,7 @@ just_leave:
 														param, enc_dir_name, icon, param, enc_dir_name, templn);
 												}
 
-												strncpy(line_entry[idx].path, tempstr, 512); idx++;
+												strncpy(line_entry[idx].path, tempstr, LINELEN2); idx++;
 												tlen+=strlen(tempstr);
 												if(tlen>(BUFFER_SIZE-1024)) break;
 
@@ -7384,15 +7416,15 @@ static void handleclient_ftp(u64 conn_s_ftp_p)
 	int dataactive = 0;			// prevent the data connection from being closed at the end of the loop
 	int loggedin = 0;			// whether the user is logged in or not
 
-	char rnfr[512];				// stores the path/to/file for the RNFR command
+	char rnfr[MAX_PATH_LEN];				// stores the path/to/file for the RNFR command
 
-	char cwd[512];				// Current Working Directory
+	char cwd[MAX_PATH_LEN];				// Current Working Directory
 	int rest = 0;				// for resuming file transfers
 
 	char buffer[2048];
 	char filename[384];
 	char source[384];
-	char tempcwd[512];
+	char tempcwd[MAX_PATH_LEN];
 	char cmd[16], param[384];
 	struct CellFsStat buf;
 	int fd;
@@ -7505,7 +7537,7 @@ static void handleclient_ftp(u64 conn_s_ftp_p)
 					if(split == 1)
 					{
 						ssend(conn_s_ftp, "350 REST command successful\r\n");
-						rest = my_atoi(param);
+						rest = val(param);
 						dataactive = 1;
 					}
 					else
@@ -7558,7 +7590,7 @@ static void handleclient_ftp(u64 conn_s_ftp_p)
 							char ipaddr[16];
 							sprintf(ipaddr, "%s.%s.%s.%s", data[0], data[1], data[2], data[3]);
 
-							data_s=connect_to_server(ipaddr, getPort(my_atoi(data[4]), my_atoi(data[5])));
+							data_s=connect_to_server(ipaddr, getPort(val(data[4]), val(data[5])));
 
 							if(data_s>=0)
 							{
@@ -7679,7 +7711,7 @@ static void handleclient_ftp(u64 conn_s_ftp_p)
 							split = ssplit(param, cmd, 5, filename, 383);
 
 							ssend(conn_s_ftp, FTP_OK_250);
-							int attributes = my_atoi(cmd);
+							int attributes = val(cmd);
 							if(attributes == 0)
 								cellFsChmod(filename, 777);
 							else
@@ -9618,6 +9650,7 @@ static void wwwd_thread(uint64_t arg)
 	set_buffer_sizes();
 
 	init_running=1;
+
 	sys_ppu_thread_t id2;
 	sys_ppu_thread_create(&id2, handleclient, (u64)START_DAEMON, -0x1d8, 0x20000, 0, "wwwd2");
 
@@ -10340,7 +10373,7 @@ static bool mount_with_mm(const char *_path0, u8 do_eject)
 		}
 	}
 
-	char _path[512];
+	char _path[MAX_PATH_LEN];
 
 #ifndef LITE_EDITION
 	if(!strcmp(_path0, "/net0")) strcpy((char*)_path0, "/net0/."); else
@@ -10427,7 +10460,7 @@ static bool mount_with_mm(const char *_path0, u8 do_eject)
 	if(_path[0]=='_' || strrchr(_path, '/')==NULL) goto exit_mount;
 	else
 	{
-		char path2[512]; int fd;
+		char path2[MAX_PATH_LEN]; int fd;
 		sprintf(path2, WMTMP "/last_game.txt");
 
 		if(cellFsOpen(path2, CELL_FS_O_CREAT | CELL_FS_O_TRUNC | CELL_FS_O_WRONLY, &fd, NULL, 0) == CELL_FS_SUCCEEDED)
@@ -10443,7 +10476,7 @@ static bool mount_with_mm(const char *_path0, u8 do_eject)
 	if(!extcmp(_path, ".BIN.ENC", 8))
 	{
 		struct CellFsStat s;
-		char temp[512];
+		char temp[MAX_PATH_LEN];
 
 		if(cellFsStat(PS2_CLASSIC_PLACEHOLDER, &s)==CELL_FS_SUCCEEDED)
 		{
@@ -10525,8 +10558,8 @@ static bool mount_with_mm(const char *_path0, u8 do_eject)
 
 		{
 			// show loaded path
-			char path2[512];
-			char temp[512];
+			char path2[MAX_PATH_LEN];
+			char temp[MAX_PATH_LEN];
 			sprintf(path2, "\"%s", (strrchr(_path, '/')+1));
 			if(strstr(path2, ".ntfs[")) path2[strrchr(path2, '.')-path2]=0;
 			if(strrchr(path2, '.')!=NULL) path2[strrchr(path2, '.')-path2]=0;
@@ -10575,9 +10608,9 @@ static bool mount_with_mm(const char *_path0, u8 do_eject)
 
 			u8 iso_num=1;
 			char tmp_iso[4096];
-			char iso_list[16][512];
+			char iso_list[16][MAX_PATH_LEN];
 			char *cobra_iso_list[16];
-			char path2[512];
+			char path2[MAX_PATH_LEN];
 			strcpy(iso_list[0], _path);
 			cobra_iso_list[0] = (char*)iso_list[0];
 
@@ -10841,7 +10874,7 @@ static bool mount_with_mm(const char *_path0, u8 do_eject)
 									tracks[0].lba = 0;
 									tracks[0].is_audio = 0;
 
-									char tcode[512];
+									char tcode[MAX_PATH_LEN];
 									u8 tmin=0, tsec=0, tfrm=0;
 									u8 use_pregap=0;
 									u32 lp=0;
@@ -11118,7 +11151,7 @@ patch:
 	char app_sys[128];
 	struct CellFsStat buf2;
 
-	char path[512];
+	char path[MAX_PATH_LEN];
 
 	//------------------
 	// re-load last game
@@ -11130,7 +11163,7 @@ patch:
 		if(cellFsOpen(_path, CELL_FS_O_RDONLY, &fd, NULL, 0) == CELL_FS_SUCCEEDED)
 		{
 			u64 read_e = 0;
-			if(cellFsRead(fd, (void *)_path, 512, &read_e) == CELL_FS_SUCCEEDED) _path[read_e]=0;
+			if(cellFsRead(fd, (void *)_path, MAX_PATH_LEN, &read_e) == CELL_FS_SUCCEEDED) _path[read_e]=0;
 			cellFsClose(fd);
 		}
 		else
@@ -11144,8 +11177,8 @@ patch:
 	if(!isDir(path)) _path[0]=path[0]=0;
 	else if(do_eject)
 	{   // show loaded path
-		char path2[512];
-		char temp[512];
+		char path2[MAX_PATH_LEN];
+		char temp[MAX_PATH_LEN];
 		sprintf(path2, "\"%s", (strrchr(_path, '/')+1));
 		if(path2[1]==NULL) sprintf(path2, "\"%s", _path);
 
