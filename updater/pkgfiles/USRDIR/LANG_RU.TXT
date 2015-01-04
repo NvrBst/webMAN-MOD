@@ -35,6 +35,7 @@ STR_DEVBL			[Включить /dev_blind (запись /dev_flash) при зап
 STR_CONTSCAN		[Отключить сканирование контента при запуске]
 STR_USBPOLL			[Выключить опрос USB]
 STR_FTPSVC			[Выключить FTP сервис]
+STR_FIXGAME		[Disable auto-fix game]
 STR_COMBOS			[Выключить "горячие клавиши"]
 STR_MMCOVERS		[Выключить обложки от multiMAN`а]
 STR_ACCESS			[Выключить удалённый доступ к FTP/WWW сервисам]
@@ -81,6 +82,7 @@ STR_ERROR			[Ошибка!]
 
 STR_MYGAMES			[Мои Игры]
 STR_LOADGAMES		[Загрузить игру с помощью webMAN]
+STR_FIXING		[Fixing %s]
 
 STR_WMSETUP			[webMAN Настройки]
 STR_WMSETUP2		[Настройки опций webMAN]

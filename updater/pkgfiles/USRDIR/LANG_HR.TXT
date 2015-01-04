@@ -35,6 +35,7 @@ STR_DEVBL		[Omoguci /dev_blind (pisanje u memoriju /dev_flash) prilikom pokretan
 STR_CONTSCAN	[Onemoguci skeniranje sadrzaja prilikom pokretanja konzole]
 STR_USBPOLL		[Onemoguci USB-polling]
 STR_FTPSVC		[Onemoguci FTP usluge]
+STR_FIXGAME		[Disable auto-fix game]
 STR_COMBOS		[Onemoguci kratice kontrolera]
 STR_MMCOVERS	[Onemoguci multiMAN omote]
 STR_ACCESS		[Onemoguci daljinski pristup za FTP/WWW usluge]
@@ -81,6 +82,7 @@ STR_ERROR		[Greska!]
 
 STR_MYGAMES		[Igre]
 STR_LOADGAMES	[Ucitaj igre putem webMANa]
+STR_FIXING		[Fixing %s]
 
 STR_WMSETUP		[webMAN Postavke]
 STR_WMSETUP2	[Postavke webMAN izbornika]

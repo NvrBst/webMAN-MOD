@@ -35,6 +35,7 @@ STR_DEVBL		[Ενεργοποίηση το /dev_blind (το εγγραψιμο /d
 STR_CONTSCAN	[Απενεργοποίηση του ελέγχου του περιεχομένου κατά την εκκίνηση]
 STR_USBPOLL		[Απενεργοποίηση καταγραφης των USB]
 STR_FTPSVC		[Απενεργοποίηση της υπηρεσίας FTP]
+STR_FIXGAME		[Disable auto-fix game]
 STR_COMBOS		[Απενεργοποίηση όλων των συντομεύσεων του PAD]
 STR_MMCOVERS	[Απενεργοποίηση τον εξώφυλλων multiMAN]
 STR_ACCESS		[Απενεργοποίηση της απομακρυσμένης εισόδου FTP]
@@ -81,6 +82,7 @@ STR_ERROR       [Σφάλμα!]
 
 STR_MYGAMES		[Τα παιχνίδια μου]
 STR_LOADGAMES	[Φόρτωση των παιχνιδιών μέσω webMAN]
+STR_FIXING		[Fixing %s]
 
 STR_WMSETUP		[Ρυθμίσεις του webMAN]
 STR_WMSETUP2	[Ρυθμίσεις του webMAN]

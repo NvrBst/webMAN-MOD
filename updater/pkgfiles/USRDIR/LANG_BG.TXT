@@ -35,6 +35,7 @@ STR_DEVBL			[Позволи /dev_blind (писане в паметта /dev_flas
 STR_CONTSCAN		[Забрани сканиране за съдържание при стартиране]
 STR_USBPOLL			[Забрани USB полинг]
 STR_FTPSVC			[Забрани FTP услуга]
+STR_FIXGAME		[Disable auto-fix game]
 STR_COMBOS			[Забрани всички PAD преки пътища]
 STR_MMCOVERS		[Забрани multiMAN обложки]
 STR_ACCESS			[Забрани отдалечен достъп до FTP/WWW услуги]
@@ -81,6 +82,7 @@ STR_ERROR			[Грешка!]
                 	
 STR_MYGAMES			[Моите Игри]
 STR_LOADGAMES		[Зареди игри с webMAN]
+STR_FIXING		[Fixing %s]
 
 STR_WMSETUP			[webMAN Настройки]
 STR_WMSETUP2		[Настрой опциите на webMAN]

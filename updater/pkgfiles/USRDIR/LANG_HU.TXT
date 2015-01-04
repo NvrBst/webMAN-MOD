@@ -35,6 +35,7 @@ STR_DEVBL			[/dev_blind (írható /dev_flash) engedélyezése a rendszer indulá
 STR_CONTSCAN		[Tartalmak keresésének kikapcsolása a rendszer indulásnál]
 STR_USBPOLL			[USB kapcsolat lekérdezésének tiltása]
 STR_FTPSVC			[Ftp kapcsolat kikapcsolása]
+STR_FIXGAME		[Disable auto-fix game]
 STR_COMBOS			[Összes gomkombináció kikapcsolása]
 STR_MMCOVERS		[MultiMAN borítók kikapcsolása]
 STR_ACCESS			[Távoli hozzáférés kikapcsolása az FTP/WWW szolgáltatásokhoz]
@@ -81,6 +82,7 @@ STR_ERROR			[Hiba!]
 
 STR_MYGAMES			[Játékaim]
 STR_LOADGAMES		[Játékok betöltése a webMAN-nel]
+STR_FIXING		[Fixing %s]
 
 STR_WMSETUP			[webMAN beállítása]
 STR_WMSETUP2		[webMAN beállításai]

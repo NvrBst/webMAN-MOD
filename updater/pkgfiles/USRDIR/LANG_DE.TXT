@@ -35,6 +35,7 @@ STR_DEVBL       [Aktiviere '/dev_blind' (beschreibares '/dev_flash') beim Booten
 STR_CONTSCAN    [Deaktiviere 'Suche Inhalte' beim Booten]
 STR_USBPOLL     [Erlaube USB-Geräten in den Schalfmodus zu wechseln]
 STR_FTPSVC      [Deaktiviere den FTP Dienst]
+STR_FIXGAME		[Disable auto-fix game]
 STR_COMBOS      [Deaktiviere alle PAD Kurzbefehle]
 STR_MMCOVERS    [Deaktiviere die 'multiMAN'-Cover]
 STR_ACCESS      [Deaktiviere den Fernzugriff zum FTP/WWW Dienst]
@@ -81,6 +82,7 @@ STR_ERROR       [!!! ERROR !!!]
 
 STR_MYGAMES     [Meine Spiele]
 STR_LOADGAMES   [Lade Spiele mit webMAN]
+STR_FIXING		[Befestigungs Version\n%s]
 
 STR_WMSETUP     [webMAN Einstellungen]
 STR_WMSETUP2    [Einstellungen im webMAN]

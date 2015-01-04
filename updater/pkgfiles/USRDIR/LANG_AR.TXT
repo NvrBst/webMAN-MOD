@@ -35,6 +35,7 @@ STR_DEVBL			[ﺯﺎﻬﺠﻟا ﻞﻴﻐﺸﺗ ﺀﺪﺑ ﺪﻨﻋ dev_flash ﻞ
 STR_CONTSCAN		[ﻞﻴﻐﺸﺘﻟا ﺀﺪﺑ ﺪﻨﻋ ىﻮﺘﺤﻤﻟا ﺺﺤﻓ ﻞﻴﻄﻌﺗ]
 STR_USBPOLL			[USB ﻞﻴﻄﻌﺗ]
 STR_FTPSVC			[FTP ﻡﺩﺎﺧ ﻞﻴﻄﻌﺗ]
+STR_FIXGAME		[Disable auto-fix game]
 STR_COMBOS			[ﺭاﺭﺯﺎﻟا ﺕاﺭﺎﺼﺘﺧا ﻞﻛ ﻞﻴﻄﻌﺗ]
 STR_MMCOVERS		[ﻥﺎﻣ ﻲﺘﻠﻤﻟا ﺔﻔﻠﻏا ﻞﻴﻄﻌﺗ]
 STR_ACCESS			[FTP/WWW ﺕﺎﻣﺪﺨﻟ ﺪﻌﺑ ﻦﻋ ﻢﻜﺤﺘﻟا ﻞﻴﻄﻌﺗ]
@@ -81,6 +82,7 @@ STR_ERROR			[ﺄﻄﺧ]
 
 STR_MYGAMES			[ﻲﺑﺎﻌﻟا]
 STR_LOADGAMES		[ﻥﺎﻣ ﺐﻳﻮﻟا ﻦﻣ ﺏﺎﻌﻟﺎﻟا ﻞﻴﻐﺸﺗ]
+STR_FIXING		[Fixing %s]
 
 STR_WMSETUP			[ﻥﺎﻣ ﺐﻳﻮﻟا ﻂﺒﺿ]
 STR_WMSETUP2		[ﻥﺎﻣ ﺐﻳﻮﻟا ﺕاﺭﺎﻴﺧ ﻂﺒﺿ]

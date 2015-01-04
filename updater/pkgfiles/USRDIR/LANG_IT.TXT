@@ -35,6 +35,7 @@ STR_DEVBL		[Attiva /dev_blind (scrittura /dev_flash) all'avvio]
 STR_CONTSCAN	[Disattiva scansione contenuti all'avvio]
 STR_USBPOLL		[Disattiva polling USB]
 STR_FTPSVC		[Disattiva servizio FTP]
+STR_FIXGAME		[Disattiva auto-fix di gioco]
 STR_COMBOS		[Disattiva tutte le scorciatoie PAD]
 STR_MMCOVERS	[Disattiva cover multiMAN]
 STR_ACCESS		[Disattiva accesso remoto ai servizi FTP/WWW]
@@ -81,7 +82,8 @@ STR_ERROR       [Errore!]
 
 STR_MYGAMES		[webMAN Games]
 STR_LOADGAMES	[Carica i giochi con webMAN]
- 
+STR_FIXING		[Fissaggio versione\n%s]
+
 STR_WMSETUP		[Setup di webMAN]
 STR_WMSETUP2	[Configurazione opzioni di webMAN]
 
