@@ -108,7 +108,7 @@ SYS_MODULE_STOP(wwwd_stop);
 
 #define MY_GAMES_XML			"/dev_hdd0/xmlhost/game_plugin/mygames.xml"
 
-#define WM_VERSION			"1.41.00 MOD"						// webMAN version
+#define WM_VERSION			"1.41.01 MOD"						// webMAN version
 #define MM_ROOT_STD			"/dev_hdd0/game/BLES80608/USRDIR"	// multiMAN root folder
 #define MM_ROOT_SSTL		"/dev_hdd0/game/NPEA00374/USRDIR"	// multiman SingStar® Stealth root folder
 #define MM_ROOT_STL			"/dev_hdd0/tmp/game_repo/main"		// stealthMAN root folder
@@ -3484,7 +3484,7 @@ static bool fix_param_sfo(unsigned char *mem, char *titleID)
 		{
 			char version[8];
 			strncpy(version, (char *) &mem[pos], 7);
-			int fw_ver=10000*version[1]+version[3]*1000+version[4]*100;
+			int fw_ver=10000*((version[1] & 0xFF)-'0') + 1000*((version[3] & 0xFF)-'0') + 100*((version[4] & 0xFF)-'0');
 			if((fw_ver>(int)(c_firmware*10000.0f)) && c_firmware>=4.20f && c_firmware<4.66f)
 			{
 				mem[pos+1]='4'; mem[pos+3]='2'; mem[pos+4]='0'; ret=true;
@@ -6645,7 +6645,7 @@ just_leave:
 						add_check_box("ss", "1", STR_NOSINGSTAR,   NULL, (webman_config->noss), buffer);
 #endif
 #ifdef FIX_GAME
-						if(c_firmware>=4.20f) add_check_box("nf", "1", STR_FIXGAME,  NULL, (webman_config->nofix), buffer);
+						if(c_firmware>=4.20f && c_firmware<4.66f) add_check_box("nf", "1", STR_FIXGAME,  NULL, (webman_config->nofix), buffer);
 #endif
 
 						strcat(buffer, "<hr color=\"#0099FF\"/>");
@@ -6709,7 +6709,7 @@ just_leave:
 						strcat(buffer, "<hr color=\"#0099FF\"/>");
 
 						sprintf(templn, "%s : <select name=\"usr\">", STR_PROFILE); strcat(buffer, templn);
-						add_option_item("0" , "DEFAULT", (profile==0) , buffer);
+						add_option_item("0" , STR_DEFAULT, (profile==0) , buffer);
 						add_option_item("1", "1", (profile==1) , buffer);
 						add_option_item("2", "2", (profile==2) , buffer);
 						add_option_item("3", "3", (profile==3) , buffer);
@@ -6786,7 +6786,9 @@ just_leave:
 						add_check_box("umt", "1", STR_UNMOUNT,    " : <b>SELECT+O</b><br>"         , !(webman_config->combo2 & UMNT_GAME), buffer);
 						add_check_box("psv", "1", "OFFLINE",      " : <b>R2+口</b><br>"             , !(webman_config->combo2 & BLOCKSVRS), buffer);
 						add_check_box("pgd", "1", "gameDATA",     " : <b>SELECT+口</b><br>"         , !(webman_config->combo2 & EXTGAMDAT), buffer);
-						add_check_box("pxr", "1", "REFRESH XML",  " : <b>SELECT+L3</b><br>"        , !(webman_config->combo2 & XMLREFRSH), buffer);
+
+						sprintf(templn, "% XML", STR_REFRESH);
+						add_check_box("pxr", "1", templn,         " : <b>SELECT+L3</b><br>"        , !(webman_config->combo2 & XMLREFRSH), buffer);
 
 #ifdef REX_ONLY
 						add_check_box("pid", "1", STR_SHOWIDPS,   " : <b>R2+O</b><br>"             , !(webman_config->combo & SHOW_IDPS), buffer);
@@ -11078,15 +11080,15 @@ static bool mount_with_mm(const char *_path0, u8 do_eject)
 		if(c_firmware==4.65f || c_firmware==4.66f)
 		{
 			//patches by deank
-			pokeq(0x800000000026FDDCULL, 0x4E80002038600000ULL ); // fix 8001003C error
-			pokeq(0x800000000026FDE4ULL, 0x7C6307B44E800020ULL ); // fix 8001003C error
-			pokeq(0x800000000005658CULL, 0x63FF003D60000000ULL ); // fix 8001003D error
-			pokeq(0x8000000000056650ULL, 0x3FE080013BE00000ULL ); // fix 8001003E error
+			pokeq(0x800000000026FDDCULL, 0x4E80002038600000ULL ); // fix 8001003C error  Original: 0x4E80002038600000ULL
+			pokeq(0x800000000026FDE4ULL, 0x7C6307B44E800020ULL ); // fix 8001003C error  Original: 0x7C6307B44E800020ULL
+			pokeq(0x800000000005658CULL, 0x63FF003D60000000ULL ); // fix 8001003D error  Original: 0x63FF003D419EFFD4ULL
+			pokeq(0x8000000000056650ULL, 0x3FE080013BE00000ULL ); // fix 8001003E error  Original: 0x3FE0800163FF003EULL
 
-			pokeq(0x80000000000565FCULL, 0x419E00D860000000ULL );
-			pokeq(0x8000000000056604ULL, 0x2F84000448000098ULL );
-			pokeq(0x800000000005A658ULL, 0x2F83000060000000ULL );
-			pokeq(0x800000000005A66CULL, 0x2F83000060000000ULL );
+			pokeq(0x80000000000565FCULL, 0x419E00D860000000ULL ); // Original: 0x419E00D8419D00C0ULL
+			pokeq(0x8000000000056604ULL, 0x2F84000448000098ULL ); // Original: 0x2F840004409C0048ULL //PATCH_JUMP
+			pokeq(0x800000000005A658ULL, 0x2F83000060000000ULL ); // fix 80010009 error  Original: 0x2F830000419E00ACULL
+			pokeq(0x800000000005A66CULL, 0x2F83000060000000ULL ); // fix 80010009 error  Original: 0x2F830000419E00ACULL
 
 			pokeq(0x8000000000056230ULL, 0x386000012F830000ULL ); // ignore LIC.DAT check
 			pokeq(0x80000000002302F0ULL, 0x38600000F8690000ULL ); // fix 0x8001002B / 80010017 errors (2015-01-03)
@@ -11274,15 +11276,15 @@ static bool mount_with_mm(const char *_path0, u8 do_eject)
 		if(c_firmware==4.65f || c_firmware==4.66f)
 		{
 			//patches by deank
-			pokeq(0x80000000002764F8ULL, 0x4E80002038600000ULL ); // fix 8001003C error
-			pokeq(0x8000000000276500ULL, 0x7C6307B44E800020ULL ); // fix 8001003C error
-			pokeq(0x8000000000059F5CULL, 0x63FF003D60000000ULL ); // fix 8001003D error
-			pokeq(0x800000000005A020ULL, 0x3FE080013BE00000ULL ); // fix 8001003E error
+			pokeq(0x80000000002764F8ULL, 0x4E80002038600000ULL ); // fix 8001003C error  Original: 0x4E80002038600000ULL
+			pokeq(0x8000000000276500ULL, 0x7C6307B44E800020ULL ); // fix 8001003C error  Original: 0x7C6307B44E800020ULL
+			pokeq(0x8000000000059F5CULL, 0x63FF003D60000000ULL ); // fix 8001003D error  Original: 0x63FF003D419EFFD4ULL
+			pokeq(0x800000000005A020ULL, 0x3FE080013BE00000ULL ); // fix 8001003E error  Original: 0x3FE0800163FF003EULL
 
-			pokeq(0x8000000000059FCCULL, 0x419E00D860000000ULL );
-			pokeq(0x8000000000059FD4ULL, 0x2F84000448000098ULL );
-			pokeq(0x800000000005E028ULL, 0x2F83000060000000ULL );
-			pokeq(0x800000000005E03CULL, 0x2F83000060000000ULL );
+			pokeq(0x8000000000059FCCULL, 0x419E00D860000000ULL ); // Original: 0x419E00D8419D00C0ULL
+			pokeq(0x8000000000059FD4ULL, 0x2F84000448000098ULL ); // Original: 0x2F840004409C0048ULL //PATCH_JUMP
+			pokeq(0x800000000005E028ULL, 0x2F83000060000000ULL ); // fix 80010009 error  Original: 0x2F830000419E00ACULL
+			pokeq(0x800000000005E03CULL, 0x2F83000060000000ULL ); // fix 80010009 error  Original: 0x2F830000419E00ACULL
 
 			pokeq(0x8000000000059C00ULL, 0x386000012F830000ULL ); // ignore LIC.DAT check
 			pokeq(0x80000000002367CCULL, 0x38600000F8690000ULL ); // fix 0x8001002B / 80010017 errors (ported for DEX 2015-01-03)
@@ -11972,14 +11974,14 @@ static bool mount_with_mm(const char *_path0, u8 do_eject)
 
 			// -- reset USB bus
 			{
-				struct CellFsStat s; u8 indx;
+				struct CellFsStat s;
 
 				if(strstr(_path, "/dev_usb") && cellFsStat(_path, &s)==CELL_FS_SUCCEEDED)
 				{
 					for(u8 f0=0; f0<8; f0++) sys_storage_ext_fake_storage_event(4, 0, ((f0<6)?USB_MASS_STORAGE_1(f0):USB_MASS_STORAGE_2(f0)));
 					for(u8 f0=0; f0<8; f0++) sys_storage_ext_fake_storage_event(8, 0, ((f0<6)?USB_MASS_STORAGE_1(f0):USB_MASS_STORAGE_2(f0)));
 
-					sys_timer_sleep(1);
+					sys_timer_sleep(1); u8 indx=0;
 
 					if(strstr(_path, "/dev_usb00")) indx=_path[10]-0x30;
 
