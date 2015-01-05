@@ -2889,12 +2889,10 @@ int set_gamedata_status(u8 status, bool do_mount)
 
 	if(status)
 	{
-		struct CellFsStat buf;
-
-		for(n=0; n<8; n++) {sprintf(gamei_path, "/dev_usb00%i/GAMEI", n); if(cellFsStat(gamei_path, &buf)==CELL_FS_SUCCEEDED) break;}
+		for(n=0; n<8; n++) {sprintf(gamei_path, "/dev_usb00%i/GAMEI", n); if(isDir(gamei_path)) break;}
 		if(n>7)
 		{
-			for(n=0; n<8; n++) {sprintf(gamei_path, "/dev_usb00%i", n); if(cellFsStat(gamei_path, &buf)==CELL_FS_SUCCEEDED) break;}
+			for(n=0; n<8; n++) {sprintf(gamei_path, "/dev_usb00%i", n); if(isDir(gamei_path)) break;}
 			if(n<8) {sprintf(gamei_path, "/dev_usb00%i/GAMEI", n); if(cellFsMkdir((char*)gamei_path, 0777)==CELL_FS_SUCCEEDED) n=99;}
 		}
 
@@ -2903,9 +2901,9 @@ int set_gamedata_status(u8 status, bool do_mount)
 #ifdef COBRA_ONLY
 
 			sys_map_path((char*)"/dev_hdd0/game", gamei_path);
-			if(cellFsStat(MM_ROOT_STD, &buf)==CELL_FS_SUCCEEDED) sys_map_path((char*)MM_ROOT_STD, (char*)"/" MM_ROOT_STD);
+			if(isDir(MM_ROOT_STD)) sys_map_path((char*)MM_ROOT_STD, (char*)"/" MM_ROOT_STD);
 #else
-			if(cellFsStat(MM_ROOT_STD, &buf)==CELL_FS_SUCCEEDED) add_to_map((char*)MM_ROOT_STD, (char*)MM_ROOT_STD);
+			if(isDir(MM_ROOT_STD)) add_to_map((char*)MM_ROOT_STD, (char*)MM_ROOT_STD);
 			add_to_map((char*)"/dev_hdd0/game", gamei_path);
 #endif
 			sprintf(msg, "gameDATA %s (usb00%i)", STR_ENABLED, n);
@@ -3435,7 +3433,7 @@ static void parse_param_sfo(unsigned char *mem, char *titleID, char *title)
 
 	while(str<4090)
 	{
-		if((mem[str]==0) || (str>dat)) break;
+		if((mem[str]==0) || (str>=dat)) break;
 
 		if(!memcmp((char *) &mem[str], "TITLE_ID", 8))
 		{
@@ -3472,7 +3470,7 @@ static bool fix_param_sfo(unsigned char *mem, char *titleID)
 
 	while(str<4090)
 	{
-		if((mem[str]==0) || (str>dat)) break;
+		if((mem[str]==0) || (str>=dat)) break;
 
 		if(!memcmp((char *) &mem[str], "TITLE_ID", 8))
 		{
@@ -3500,6 +3498,30 @@ static bool fix_param_sfo(unsigned char *mem, char *titleID)
 }
 
 #ifdef FIX_GAME
+static bool fix_ps3_extra(unsigned char *mem)
+{
+	u16 pos, str, dat, indx=0;
+
+	str=(mem[0x8]+(mem[0x9]<<8));
+	dat=pos=(mem[0xc]+(mem[0xd]<<8));
+
+	while(str<4090)
+	{
+		if((mem[str]==0) || (str>=dat)) break;
+
+		if(!memcmp((char *) &mem[str], "ATTRIBUTE", 9))
+		{
+			if(!(mem[pos+2] & 2)) {mem[pos+2]|=0x2; return true;}
+			break;
+		}
+
+		while(mem[str]) str++;str++;
+		pos+=(mem[0x1c+indx]+(mem[0x1d+indx]<<8));
+		indx+=0x10;
+	}
+	return false;
+}
+
 static void fix_game(char *path)
 {
 	int fd;
@@ -3520,6 +3542,8 @@ static void fix_game(char *path)
 			{
 				int fdw, offset; uint64_t msiz = 0; char ps3_sys_version[8];
 
+				cellFsChmod(filename, 0666); //fix file read-write permission
+
 				if(cellFsOpen(filename, CELL_FS_O_RDWR, &fdw, NULL, 0)==CELL_FS_SUCCEEDED)
 				{
 					offset=!extcasecmp(dir.d_name, ".sprx", 5)?0x258:0x428;
@@ -3530,6 +3554,7 @@ static void fix_game(char *path)
 					if((ps3_sys_version[0]+ps3_sys_version[1]+ps3_sys_version[2]+ps3_sys_version[3]+ps3_sys_version[4]+ps3_sys_version[5])==0 && (ps3_sys_version[6] & 0xFF)>0xA4)
 					{
 						ps3_sys_version[6]=0XA4; ps3_sys_version[7]=0X10;
+
 						cellFsLseek(fdw, offset, CELL_FS_SEEK_SET, &msiz);
 						cellFsWrite(fdw, (char*)ps3_sys_version, 8, NULL);
 					}
@@ -3570,7 +3595,7 @@ void fix_iso(char *isofile, uint64_t maxbytes)
 
 	int fd;
 
-	cellFsChmod(isofile, 0666);
+	cellFsChmod(isofile, 0666); //fix file read-write permission
 
 	if(cellFsOpen((char*)isofile, CELL_FS_O_RDWR, &fd, 0, 0)==CELL_FS_SUCCEEDED)
 	{
@@ -4254,18 +4279,18 @@ static void handleclient(u64 conn_s_p)
 
 		init_running=1;
 
-		is_rebug=(cellFsStat((char*)"/dev_flash/rebug", &buf)==CELL_FS_SUCCEEDED);
+		is_rebug=isDir("/dev_flash/rebug");
 
 		//identify covers folders to be scanned
 #ifndef ENGLISH_ONLY
-													covers_exist[0]=(cellFsStat(COVERS_PATH, &buf)==CELL_FS_SUCCEEDED);
+													covers_exist[0]=isDir(COVERS_PATH);
 #endif
-		sprintf(templn, "%s/covers", MM_ROOT_STD) ; covers_exist[1]=(cellFsStat(templn, &buf)==CELL_FS_SUCCEEDED);
-		sprintf(templn, "%s/covers", MM_ROOT_STL) ; covers_exist[2]=(cellFsStat(templn, &buf)==CELL_FS_SUCCEEDED);
-		sprintf(templn, "%s/covers", MM_ROOT_SSTL); covers_exist[3]=(cellFsStat(templn, &buf)==CELL_FS_SUCCEEDED);
-													covers_exist[4]=(cellFsStat("/dev_hdd0/GAMES/covers", &buf)==CELL_FS_SUCCEEDED);
-													covers_exist[5]=(cellFsStat("/dev_hdd0/GAMEZ/covers", &buf)==CELL_FS_SUCCEEDED);
-													covers_exist[6]=(cellFsStat(WMTMP, &buf)==CELL_FS_SUCCEEDED);
+		sprintf(templn, "%s/covers", MM_ROOT_STD) ; covers_exist[1]=isDir(templn);
+		sprintf(templn, "%s/covers", MM_ROOT_STL) ; covers_exist[2]=isDir(templn);
+		sprintf(templn, "%s/covers", MM_ROOT_SSTL); covers_exist[3]=isDir(templn);
+													covers_exist[4]=isDir("/dev_hdd0/GAMES/covers");
+													covers_exist[5]=isDir("/dev_hdd0/GAMEZ/covers");
+													covers_exist[6]=isDir(WMTMP);
 
 		for(u8 i=0; i<12; i++)
 		{
@@ -7915,7 +7940,7 @@ static void handleclient_ftp(u64 conn_s_ftp_p)
 						{
 							ssend(conn_s_ftp, FTP_OK_250);
 
-							struct CellFsStat s; bool rw_flash=(cellFsStat((char*)"/dev_blind", &s)==CELL_FS_SUCCEEDED);
+							bool rw_flash=isDir("/dev_blind");
 
 							if(filename[0] == 0) ; else
 							if(strcasecmp(filename, "ON" ) == 0) {if( rw_flash) continue;} else
@@ -8719,9 +8744,7 @@ void no_singstar_icon()
 
 void enable_dev_blind(char *msg)
 {
-	struct CellFsStat s;
-
-	if(cellFsStat("/dev_blind", &s)!=CELL_FS_SUCCEEDED)
+	if(!isDir("/dev_blind"))
 		{system_call_8(SC_FS_MOUNT, (u64)(char*)"CELL_FS_IOS:BUILTIN_FLSH1", (u64)(char*)"CELL_FS_FAT", (u64)(char*)"/dev_blind", 0, 0, 0, 0, 0);}
 
 	if(!msg) return;
@@ -10799,13 +10822,12 @@ static void do_umount_iso(void)
 	// If there is a real disc in the system, issue an insert event
 	if (real_disctype != DISC_TYPE_NONE)
 	{
-		struct CellFsStat bufc;
 		cobra_send_fake_disc_insert_event();
 		for(u8 m=0; m<22; m++)
 		{
 			sys_timer_usleep(4000);
 
-			if(cellFsStat((char*)"/dev_bdvd", &bufc)==CELL_FS_SUCCEEDED) break;
+			if(isDir("/dev_bdvd")) break;
 		}
 		cobra_disc_auth();
 	}
@@ -10814,8 +10836,6 @@ static void do_umount_iso(void)
 
 static void do_umount(bool clean)
 {
-	struct CellFsStat buf;
-
 	if(clean) cellFsUnlink((char*)WMTMP "/last_game.txt");
 
 #ifdef COBRA_ONLY
@@ -10826,7 +10846,7 @@ static void do_umount(bool clean)
 
 		cobra_unset_psp_umd();
 		{sys_map_path((char*)"/dev_bdvd", NULL);}
-		{sys_map_path((char*)"/app_home", (is_rebug || cellFsStat((char*)"/dev_hdd0/packages", &buf)!=CELL_FS_SUCCEEDED)?NULL:(char*)"/dev_hdd0/packages");}
+		{sys_map_path((char*)"/app_home", (is_rebug || !isDir("/dev_hdd0/packages"))?NULL:(char*)"/dev_hdd0/packages");}
 
 		{sys_map_path((char*)"//dev_bdvd", NULL);}
 		//{sys_map_path((char*)"//app_home", NULL);}
@@ -10850,7 +10870,7 @@ static void do_umount(bool clean)
 		pokeq(0x8000000000000008ULL+MAP_ADDR, 0x0000000000000000ULL);
 		//eject_insert(1, 1);
 
-		if(cellFsStat((char*)"/dev_flash/pkg", &buf)==CELL_FS_SUCCEEDED)
+		if(isDir("/dev_flash/pkg"))
 			mount_with_mm((char*)"/dev_flash/pkg", 0);
 	}
 #endif
@@ -11954,9 +11974,20 @@ static bool mount_with_mm(const char *_path0, u8 do_eject)
 				// get titleid
 				fix_param_sfo(mem, titleID);
 #else
-				// get titleid & fix game folder if version is higher than cfw
-				if(fix_param_sfo(mem, titleID) && !webman_config->nofix && !strstr(_path, "/net"))
+				// fix ps3 extra
+				char tmp_path[MAX_PATH_LEN]; sprintf(tmp_path, "%s/PS3_EXTRA", _path);
+				if(isDir(tmp_path) && fix_ps3_extra(mem))
 				{
+					cellFsChmod(filename, 0666);
+					savefile(filename, paramsfo, msiz);
+				}
+
+				tmp_path[10]=0;
+
+				// get titleid & fix game folder if version is higher than cfw
+				if(fix_param_sfo(mem, titleID) && !webman_config->nofix && !strstr(tmp_path, "/net") && !strstr(tmp_path, "/dev_bdvd"))
+				{
+					cellFsChmod(filename, 0666);
 					savefile(filename, paramsfo, msiz);
 
 					sprintf(filename, STR_FIXING, _path);
@@ -11974,9 +12005,7 @@ static bool mount_with_mm(const char *_path0, u8 do_eject)
 
 			// -- reset USB bus
 			{
-				struct CellFsStat s;
-
-				if(strstr(_path, "/dev_usb") && cellFsStat(_path, &s)==CELL_FS_SUCCEEDED)
+				if(strstr(_path, "/dev_usb") && isDir(_path))
 				{
 					for(u8 f0=0; f0<8; f0++) sys_storage_ext_fake_storage_event(4, 0, ((f0<6)?USB_MASS_STORAGE_1(f0):USB_MASS_STORAGE_2(f0)));
 					for(u8 f0=0; f0<8; f0++) sys_storage_ext_fake_storage_event(8, 0, ((f0<6)?USB_MASS_STORAGE_1(f0):USB_MASS_STORAGE_2(f0)));
@@ -12257,9 +12286,9 @@ patch:
 
 
 	sprintf(app_sys, MM_ROOT_STD "/sys");
-	if(cellFsStat(app_sys, &buf2)!=CELL_FS_SUCCEEDED)
+	if(!isDir(app_sys))
 		sprintf(app_sys, MM_ROOT_STL "/sys");
-	if(cellFsStat(app_sys, &buf2)!=CELL_FS_SUCCEEDED)
+	if(!isDir(app_sys))
 		sprintf(app_sys, MM_ROOT_SSTL "/sys");
 
 
@@ -12370,7 +12399,7 @@ patch:
 		pokeq(map_data + (n * 0x20) + 0x00, strlen(file_to_map[n].src));
 	}
 
-	if(cellFsStat((char*)"/dev_bdvd", &buf2)==CELL_FS_SUCCEEDED) sys_timer_sleep(2);
+	if(isDir("/dev_bdvd")) sys_timer_sleep(2);
 
 	//if(do_eject) eject_insert(0, 1);
 #endif
