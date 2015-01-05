@@ -32,13 +32,13 @@
 #include <time.h>
 #include <unistd.h>
 
-#define ENGLISH_ONLY	1	// uncomment for english only version
+//#define ENGLISH_ONLY	1	// uncomment for english only version
 
 //#define CCAPI			1	// uncomment for ccapi release
 #define COBRA_ONLY	1	// comment out for ccapi/non-cobra release
 //#define REX_ONLY		1	// shortcuts for REBUG REX CFWs / comment out for usual CFW
 
-#define PS3MAPI		1
+//#define PS3MAPI		1
 //#define LITE_EDITION	1	// no ps3netsrv support, smaller memory footprint
 #define WEB_CHAT		1
 #define FIX_GAME		1
@@ -108,7 +108,7 @@ SYS_MODULE_STOP(wwwd_stop);
 
 #define MY_GAMES_XML			"/dev_hdd0/xmlhost/game_plugin/mygames.xml"
 
-#define WM_VERSION			"1.41.01 MOD"						// webMAN version
+#define WM_VERSION			"1.41.02 MOD"						// webMAN version
 #define MM_ROOT_STD			"/dev_hdd0/game/BLES80608/USRDIR"	// multiMAN root folder
 #define MM_ROOT_SSTL		"/dev_hdd0/game/NPEA00374/USRDIR"	// multiman SingStar® Stealth root folder
 #define MM_ROOT_STL			"/dev_hdd0/tmp/game_repo/main"		// stealthMAN root folder
@@ -257,6 +257,14 @@ static sys_ppu_thread_t thread_id		=-1;
 
 #define LV1_UPPER_MEMORY	0x8000000001000000ULL
 #define LV2_UPPER_MEMORY	0x8000000000800000ULL
+
+enum FIX_GAME_MODES
+{
+	FIX_GAME_AUTO,
+	FIX_GAME_QUICK,
+	FIX_GAME_FORCED,
+	FIX_GAME_DISABLED
+};
 
 enum STORAGE_COMMAND
 {
@@ -433,7 +441,7 @@ typedef struct
 	char uaccount[9];
 	char allow_ip[16];
 	uint8_t noss;
-	uint8_t nofix;
+	uint8_t fixgame;
 } __attribute__((packed)) WebmanCfg;
 
 //combo
@@ -3115,6 +3123,7 @@ void remove_cfw_syscalls()
 	pokeq(SYSCALL_PTR( 8), sc_null);
 	pokeq(SYSCALL_PTR( 9), sc_null);
 	pokeq(SYSCALL_PTR(10), sc_null);
+	pokeq(SYSCALL_PTR(11), sc_null);
 	pokeq(SYSCALL_PTR(35), sc_null);
 	pokeq(SYSCALL_PTR(36), sc_null);
 	pokeq(SYSCALL_PTR( 6), sc_null);
@@ -3126,12 +3135,14 @@ void remove_cfw_syscalls()
   //u64 sc8  = peekq(SYSCALL_PTR( 8));
 	u64 sc9  = peekq(SYSCALL_PTR( 9));
 	u64 sc10 = peekq(SYSCALL_PTR(10));
+	u64 sc11 = peekq(SYSCALL_PTR(11));
   //u64 sc35 = peekq(SYSCALL_PTR(35));
 	u64 sc36 = peekq(SYSCALL_PTR(36));
 
   //if(sc8 !=sc_null) pokeq(sc8,  sc_not_impl_pt);
 	if(sc9 !=sc_null) pokeq(sc9,  sc_not_impl_pt);
 	if(sc10!=sc_null) pokeq(sc10, sc_not_impl_pt);
+	if(sc11!=sc_null) pokeq(sc11, sc_not_impl_pt);
   //if(sc35!=sc_null) pokeq(sc35, sc_not_impl_pt);
 	if(sc36!=sc_null) pokeq(sc36, sc_not_impl_pt);
 	if(sc6 !=sc_null) pokeq(sc6,  sc_not_impl_pt);
@@ -3570,7 +3581,7 @@ static void fix_game(char *path)
 				}
 				cellFsClose(fdw);
 			}
-			else if(isDir(filename)) fix_game(filename);
+			else if(isDir(filename) && (webman_config->fixgame!=FIX_GAME_QUICK)) fix_game(filename);
 
 			sys_timer_usleep(1);
 		}
@@ -3965,20 +3976,21 @@ static void get_default_icon(char *icon, char *param, char *file, int isdir, int
 		strcpy(icon, wm_icons[5]);
 }
 
-static int get_title_and_id_from_sfo(char *templn, char *tempID, char *entry_name, char *icon)
+static int get_title_and_id_from_sfo(char *templn, char *tempID, char *entry_name, char *icon, char *data)
 {
-	int fdw; uint64_t msiz = 0; char data[_4KB_];
-	unsigned char *mem = (u8*)data;
+	int fdw;
 
 	if(cellFsOpen(templn, CELL_FS_O_RDONLY, &fdw, 0, 0)==CELL_FS_SUCCEEDED)
 	{
+		uint64_t msiz = 0;
 		cellFsLseek(fdw, 0, CELL_FS_SEEK_SET, &msiz);
-		cellFsRead(fdw, (void *)&data, _4KB_, &msiz);
+		cellFsRead(fdw, (void *)data, _4KB_, &msiz);
 		cellFsClose(fdw);
 
 		templn[0]=0;
 		if(msiz>256)
 		{
+			unsigned char *mem = (u8*)data;
 			parse_param_sfo(mem, tempID, templn);
 			if(tempID[0] && !webman_config->nocov) get_cover(icon, tempID);
 		}
@@ -4769,11 +4781,11 @@ read_folder_xml:
 										int bytes_read, boff=0;
 										while(boff<file_size)
 										{
-											bytes_read = read_remote_file(ns, (char*)tempstr, boff, 3072, &abort_connection);
+											bytes_read = read_remote_file(ns, (char*)tempstr, boff, 4092, &abort_connection);
 											if(bytes_read)
 												cellFsWrite(fdw, (char*)tempstr, bytes_read, NULL);
 											boff+=bytes_read;
-											if(bytes_read<3072 || abort_connection) break;
+											if(bytes_read<4092 || abort_connection) break;
 										}
 										open_remote_file_2(ns, (char*)"/CLOSEFILE", &bytes_read);
 										cellFsClose(fdw);
@@ -4781,7 +4793,7 @@ read_folder_xml:
 									cellFsChmod(templn, 0666);
 								}
 
-								get_title_and_id_from_sfo(templn, tempID, data[v3_entry].name, icon);
+								get_title_and_id_from_sfo(templn, tempID, data[v3_entry].name, icon, tempstr);
 							}
 							else
 								get_name(templn, data[v3_entry].name, 0); //use file name as title
@@ -4877,7 +4889,7 @@ read_folder_xml:
 								msiz=0;
 								if(!is_iso)
 								{
-                                    get_title_and_id_from_sfo(templn, tempID, entry.d_name, icon);
+                                    get_title_and_id_from_sfo(templn, tempID, entry.d_name, icon, tempstr);
 								}
 								else
 								{
@@ -4898,7 +4910,7 @@ read_folder_xml:
 											sprintf(templn, "%s/%s.SFO", param, tempstr);
 										}
 
-										get_title_and_id_from_sfo(templn, tempID, entry.d_name, icon);
+										get_title_and_id_from_sfo(templn, tempID, entry.d_name, icon, tempstr);
 									}
 									else
 #endif
@@ -5700,7 +5712,10 @@ html_response:
 					if(strstr(param, "nc=1")) webman_config->nocov=1;
 
 #ifdef FIX_GAME
-					if(strstr(param, "nf=1")) webman_config->nofix=1;
+					if(strstr(param, "fm=0")) webman_config->fixgame=FIX_GAME_AUTO;
+					if(strstr(param, "fm=1")) webman_config->fixgame=FIX_GAME_QUICK;
+					if(strstr(param, "fm=2")) webman_config->fixgame=FIX_GAME_FORCED;
+					if(strstr(param, "nf=3")) webman_config->fixgame=FIX_GAME_DISABLED;
 #endif
 
 					if(strstr(param, "nsp=1")) webman_config->nospoof=1; //don't spoof fw version
@@ -6672,13 +6687,20 @@ just_leave:
 
 #ifdef COBRA_ONLY
 						if(!(c_firmware==4.53f || c_firmware==4.66f))
-       						add_check_box("nsp", "1", STR_NOSPOOF, NULL, (webman_config->nospoof), buffer);
+							add_check_box("nsp", "1", STR_NOSPOOF, NULL, (webman_config->nospoof), buffer);
 #endif
 #ifdef NOSINGSTAR
 						add_check_box("ss", "1", STR_NOSINGSTAR,   NULL, (webman_config->noss), buffer);
 #endif
 #ifdef FIX_GAME
-						if(c_firmware>=4.20f && c_firmware<4.66f) add_check_box("nf", "1", STR_FIXGAME,  NULL, (webman_config->nofix), buffer);
+						if(c_firmware>=4.20f && c_firmware<4.66f)
+						{
+							add_check_box("nf", "3", STR_FIXGAME,  " : <select name=\"fm\">", (webman_config->fixgame==FIX_GAME_DISABLED), buffer);
+							add_option_item("0", "Auto"  , (webman_config->fixgame==FIX_GAME_AUTO) , buffer);
+							add_option_item("1", "Quick" , (webman_config->fixgame==FIX_GAME_QUICK) , buffer);
+							add_option_item("2", "Forced", (webman_config->fixgame==FIX_GAME_FORCED) , buffer);
+							strcat(buffer, "</select><br>");
+						}
 #endif
 
 						strcat(buffer, "<hr color=\"#0099FF\"/>");
@@ -6820,7 +6842,7 @@ just_leave:
 						add_check_box("psv", "1", "OFFLINE",      " : <b>R2+口</b><br>"             , !(webman_config->combo2 & BLOCKSVRS), buffer);
 						add_check_box("pgd", "1", "gameDATA",     " : <b>SELECT+口</b><br>"         , !(webman_config->combo2 & EXTGAMDAT), buffer);
 
-						sprintf(templn, "% XML", STR_REFRESH);
+						sprintf(templn, "%s XML", STR_REFRESH);
 						add_check_box("pxr", "1", templn,         " : <b>SELECT+L3</b><br>"        , !(webman_config->combo2 & XMLREFRSH), buffer);
 
 #ifdef REX_ONLY
@@ -7078,24 +7100,25 @@ just_leave:
 									else
 									{
 										sprintf(target, "/dev_hdd0/GAMES/My Disc Backup");
-										if(strstr(param+plen, "/dev_bdvd"))
+										if(strstr(param, "/dev_bdvd"))
 										{
-											char title[60];
-											char titleid[10];
-											unsigned char mem[_4KB_];
+											char titleid[10], title[60];
+											unsigned char *mem = (u8*)tempstr;
 
-											if(cellFsStat((char*)"/dev_bdvd/PS3_GAME/PARAM.SFO", &buf)==CELL_FS_SUCCEEDED)
-											{
-												int fdw;
-												uint64_t msiz = 0;
-												if(cellFsOpen((char*)"/dev_bdvd/PS3_GAME/PARAM.SFO", CELL_FS_O_RDONLY, &fdw, 0,0)==CELL_FS_SUCCEEDED)
-												{   memset(mem, 0, _4KB_);
-													cellFsLseek(fdw, 0, CELL_FS_SEEK_SET, &msiz);
-													cellFsRead(fdw, (void *)&mem, _4KB_, &msiz);
-													cellFsClose(fdw);
+											int fdw;
+											if(cellFsOpen((char*)"/dev_bdvd/PS3_GAME/PARAM.SFO", CELL_FS_O_RDONLY, &fdw, 0, 0)==CELL_FS_SUCCEEDED)
+											{   memset(mem, 0, _4KB_); uint64_t msiz = 0;
+												cellFsLseek(fdw, 0, CELL_FS_SEEK_SET, &msiz);
+												cellFsRead(fdw, (void *)mem, _4KB_, &msiz);
+												cellFsClose(fdw);
 
-													parse_param_sfo(mem, titleid, title);
-													if(!titleid) sprintf(target, "/dev_hdd0/GAMES/%s [%s]", title, titleid);
+												parse_param_sfo(mem, titleid, title);
+												if(titleid[0])
+												{
+													if(strstr(title, " ["))
+														sprintf(target, "/dev_hdd0/GAMES/%s", title);
+													else
+														sprintf(target, "/dev_hdd0/GAMES/%s [%s]", title, titleid);
 												}
 											}
 										}
@@ -7429,7 +7452,7 @@ just_leave:
 													cellFsChmod(templn, 0666);
 												}
 
-												get_title_and_id_from_sfo(templn, tempID, data[v3_entry].name, icon);
+												get_title_and_id_from_sfo(templn, tempID, data[v3_entry].name, icon, tempstr);
 											}
 											else
 												get_name(templn, data[v3_entry].name, 0);
@@ -7520,7 +7543,7 @@ just_leave:
 															sprintf(templn, "%s/%s.SFO", param, tempstr);
 														}
 
-														if(get_title_and_id_from_sfo(templn, tempID, entry.d_name, icon)==1)
+														if(get_title_and_id_from_sfo(templn, tempID, entry.d_name, icon, tempstr)==1)
 														{
 															if( f0<NTFS ) //get title id from ISO
 															{
@@ -7560,7 +7583,7 @@ just_leave:
 												}
 												else
 												{
-													get_title_and_id_from_sfo(templn, tempID, entry.d_name, icon);
+													get_title_and_id_from_sfo(templn, tempID, entry.d_name, icon, tempstr);
 												}
 
 												get_cover_from_name(icon, entry.d_name, tempID);
@@ -9801,7 +9824,7 @@ void reset_settings()
 	webman_config->ps2l=1;       //Show PS2 Classic Launcher
 
 	webman_config->spp=0;        //disable removal of syscalls
-	webman_config->nofix=0;      //allow fix games
+	webman_config->fixgame=FIX_GAME_AUTO;
 
 	webman_config->sidps=0;      //spoof IDPS
 	webman_config->spsid=0;      //spoof PSID
@@ -9906,13 +9929,14 @@ void set_buffer_sizes()
 	BUFFER_SIZE = BUFFER_SIZE_ALL - (BUFFER_SIZE_PSX + BUFFER_SIZE_PSP + BUFFER_SIZE_PS2 + BUFFER_SIZE_DVD);
 }
 
+
 #ifdef PS3MAPI
 
 ///////////// PS3MAPI BEGIN //////////////
 
-#define PS3MAPI_SERVER_VERSION					0x0110
-#define PS3MAPI_SERVER_MINVERSION				0x0110
-#define PS3MAPI_CORE_MINVERSION					0x0110
+#define PS3MAPI_SERVER_VERSION					0x0111
+#define PS3MAPI_SERVER_MINVERSION				0x0111
+#define PS3MAPI_CORE_MINVERSION					0x0111
 
 #define THREAD_NAME_PS3MAPI						"ps3m_api_server"
 #define THREAD02_NAME_PS3MAPI					"ps3m_api_client"
@@ -9935,9 +9959,11 @@ void set_buffer_sizes()
 #define PS3MAPI_OPCODE_GET_PROC_MODULE_FILENAME	0x0043
 #define PS3MAPI_OPCODE_LOAD_PROC_MODULE			0x0044
 #define PS3MAPI_OPCODE_UNLOAD_PROC_MODULE		0x0045
-#define PS3MAPI_OPCODE_CLEAN_SYSCALL			0x0091
-#define PS3MAPI_OPCODE_CHECK_SYSCALL			0x0092
-#define PS3MAPI_OPCODE_DISABLE_COBRA			0x0101
+#define PS3MAPI_OPCODE_CHECK_SYSCALL			0x0091
+#define PS3MAPI_OPCODE_DISABLE_SYSCALL			0x0092
+#define PS3MAPI_OPCODE_PDISABLE_SYSCALL8 		0x0093
+#define PS3MAPI_OPCODE_PCHECK_SYSCALL8 			0x0094
+#define PS3MAPI_OPCODE_REMOVE_HOOK				0x0101
 
 #define PS3MAPIPORT			(7887)
 
@@ -9964,7 +9990,7 @@ static void handleclient_ps3mapi(u64 conn_s_ps3mapi_p)
 
 	#define PS3MAPI_OK_150    "150 OK: Binary status okay; about to open data connection.\r\n"
 	#define PS3MAPI_OK_200    "200 OK: The requested action has been successfully completed.\r\n"
-	#define PS3MAPI_OK_220    "220 OK: PS3 Manager API Server v%i.\r\n"
+	#define PS3MAPI_OK_220    "220 OK: PS3 Manager API Server v1.\r\n"
 	#define PS3MAPI_OK_221    "221 OK: Service closing control connection.\r\n"
 	#define PS3MAPI_OK_226    "226 OK: Closing data connection. Requested binary action successful.\r\n"
 	#define PS3MAPI_OK_230    "230 OK: Connected to PS3 Manager API Server.\r\n"
@@ -10026,7 +10052,7 @@ static void handleclient_ps3mapi(u64 conn_s_ps3mapi_p)
 						sprintf(buffer, "200 %i\r\n", PS3MAPI_SERVER_MINVERSION);
 						ssend(conn_s_ps3mapi, buffer);
 					}
-					else ssend(conn_s_ps3mapi, PS3MAPI_ERROR_502); // Command not implemented.
+					else ssend(conn_s_ps3mapi, PS3MAPI_ERROR_502);
 				}
 				else
 				{
@@ -10099,7 +10125,7 @@ static void handleclient_ps3mapi(u64 conn_s_ps3mapi_p)
 					else if (strcasecmp(cmd, "GETFWVERSION") == 0)
 					{
 						int version = 0;
-						{ system_call_2(8, SYSCALL8_OPCODE_PS3MAPI, PS3MAPI_OPCODE_GET_FW_VERSION); sprintf(buffer, "200 %i\r\n", version = (int)(p1)); }
+						{system_call_2(8, SYSCALL8_OPCODE_PS3MAPI, PS3MAPI_OPCODE_GET_FW_VERSION); sprintf(buffer, "200 %i\r\n", version = (int)(p1)); }
 						sprintf(buffer, "200 %i\r\n", version);
 						ssend(conn_s_ps3mapi, buffer);
 					}
@@ -10161,15 +10187,42 @@ static void handleclient_ps3mapi(u64 conn_s_ps3mapi_p)
 						sprintf(buffer, "200 %i|%i\r\n", cpu_temp, rsx_temp);
 						ssend(conn_s_ps3mapi, buffer);
 					}
-					else if (strcasecmp(cmd, "CLEANSYSCALL") == 0)
+					else if (strcasecmp(cmd, "DISABLESYSCALL") == 0)
 					{
-						{ system_call_2(8, SYSCALL8_OPCODE_PS3MAPI, PS3MAPI_OPCODE_CLEAN_SYSCALL); }
-						ssend(conn_s_ps3mapi, PS3MAPI_OK_200);
+						if (split == 1)
+						{
+							int num = val(param2);
+							{ system_call_3(8, SYSCALL8_OPCODE_PS3MAPI, PS3MAPI_OPCODE_DISABLE_SYSCALL, (u64)num); }
+							ssend(conn_s_ps3mapi, PS3MAPI_OK_200);
+						}
+						else ssend(conn_s_ps3mapi, PS3MAPI_ERROR_501);
 					}
 					else if (strcasecmp(cmd, "CHECKSYSCALL") == 0)
 					{
+						if (split == 1)
+						{
+							int num = val(param2);
+							int check = 0;
+							{ system_call_3(8, SYSCALL8_OPCODE_PS3MAPI, PS3MAPI_OPCODE_CHECK_SYSCALL, (u64)num); check = (int)(p1); }
+							sprintf(buffer, "200 %i\r\n", check);
+							ssend(conn_s_ps3mapi, buffer);
+						}
+						else ssend(conn_s_ps3mapi, PS3MAPI_ERROR_501);
+					}
+					else if (strcasecmp(cmd, "PDISABLESYSCALL8") == 0)
+					{
+						if (split == 1)
+						{
+							int mode = val(param2);
+							{ system_call_3(8, SYSCALL8_OPCODE_PS3MAPI, PS3MAPI_OPCODE_PDISABLE_SYSCALL8, (u64)mode); }
+							ssend(conn_s_ps3mapi, PS3MAPI_OK_200);
+						}
+						else ssend(conn_s_ps3mapi, PS3MAPI_ERROR_501);
+					}
+					else if (strcasecmp(cmd, "PCHECKSYSCALL8") == 0)
+					{
 						int check = 0;
-						{ system_call_2(8, SYSCALL8_OPCODE_PS3MAPI, PS3MAPI_OPCODE_CHECK_SYSCALL); check = (int)(p1); }
+						{ system_call_2(8, SYSCALL8_OPCODE_PS3MAPI, PS3MAPI_OPCODE_PCHECK_SYSCALL8); check = (int)(p1); }
 						sprintf(buffer, "200 %i\r\n", check);
 						ssend(conn_s_ps3mapi, buffer);
 					}
@@ -10183,12 +10236,12 @@ static void handleclient_ps3mapi(u64 conn_s_ps3mapi_p)
 						delete_history(false);
 						ssend(conn_s_ps3mapi, PS3MAPI_OK_200);
 					}
-					else if (strcasecmp(cmd, "DISABLECM") == 0)
+					else if (strcasecmp(cmd, "REMOVEHOOK") == 0)
 					{
-						{ system_call_2(8, SYSCALL8_OPCODE_PS3MAPI, PS3MAPI_OPCODE_DISABLE_COBRA); }
+						{ system_call_2(8, SYSCALL8_OPCODE_PS3MAPI, PS3MAPI_OPCODE_REMOVE_HOOK); }
 						ssend(conn_s_ps3mapi, PS3MAPI_OK_200);
 					}
-					else ssend(conn_s_ps3mapi, PS3MAPI_ERROR_502); // Command not implemented.
+					else ssend(conn_s_ps3mapi, PS3MAPI_ERROR_502);
 				}
 				else
 				{
@@ -11749,7 +11802,7 @@ static bool mount_with_mm(const char *_path0, u8 do_eject)
 				if(strstr(_path, "/PS3ISO/"))
 				{
 #ifdef FIX_GAME
-					if(!webman_config->nofix)
+					if(webman_config->fixgame!=FIX_GAME_DISABLED)
 					{
 						fix_in_progress=true; fix_aborted = false;
 						fix_iso(_path, 0x100000UL);
@@ -11973,7 +12026,7 @@ static bool mount_with_mm(const char *_path0, u8 do_eject)
 #else
 				// fix ps3 extra
 				char tmp_path[MAX_PATH_LEN]; sprintf(tmp_path, "%s/PS3_EXTRA", _path);
-				if(!webman_config->nofix && isDir(tmp_path) && fix_ps3_extra(mem))
+				if(webman_config->fixgame!=FIX_GAME_DISABLED && isDir(tmp_path) && fix_ps3_extra(mem))
 				{
 					savefile(filename, paramsfo, msiz);
 				}
@@ -11981,18 +12034,20 @@ static bool mount_with_mm(const char *_path0, u8 do_eject)
 				tmp_path[10]=0;
 
 				// get titleid & fix game folder if version is higher than cfw
-				if(fix_param_sfo(mem, titleID) && !webman_config->nofix && !strstr(tmp_path, "/net") && !strstr(tmp_path, "/dev_bdvd"))
+				if((fix_param_sfo(mem, titleID) || webman_config->fixgame==FIX_GAME_FORCED) && webman_config->fixgame!=FIX_GAME_DISABLED && !strstr(tmp_path, "/net") && !strstr(tmp_path, "/dev_bdvd"))
 				{
 					savefile(filename, paramsfo, msiz);
 
 					sprintf(filename, STR_FIXING, _path);
 					show_msg(filename);
 
+					// fix game folder
 					fix_in_progress=true; fix_aborted=false;
 					sprintf(filename, "%s/PS3_GAME/USRDIR", _path);
 					fix_game(filename);
 					fix_in_progress=false;
 
+					if(webman_config->fixgame==FIX_GAME_FORCED) {webman_config->fixgame=FIX_GAME_QUICK; save_settings();}
 				}
 #endif
 			}
@@ -12232,6 +12287,53 @@ patch:
 		sprintf(temp, "\" %s", STR_LOADED2); strcat(path2, temp);
 		show_msg(path2);
 	}
+
+	// -- get TitleID from PARAM.SFO
+	char filename[MAX_PATH_LEN], paramsfo[_4KB_], titleID[16];
+	unsigned char *mem = (u8*)paramsfo;
+	int fs; uint64_t msiz = 0;
+
+	memset(titleID, 0, 16);
+
+	sprintf(filename, "%s/PS3_GAME/PARAM.SFO", _path);
+	if(cellFsOpen(filename, CELL_FS_O_RDONLY, &fs, 0, 0)==CELL_FS_SUCCEEDED)
+	{
+		cellFsLseek(fs, 0, CELL_FS_SEEK_SET, &msiz);
+		cellFsRead(fs, (void *)&paramsfo, _4KB_, &msiz);
+		cellFsClose(fs);
+
+#ifndef FIX_GAME
+		// get titleid
+		fix_param_sfo(mem, titleID);
+#else
+		// fix ps3 extra
+		char tmp_path[MAX_PATH_LEN]; sprintf(tmp_path, "%s/PS3_EXTRA", _path);
+		if(webman_config->fixgame!=FIX_GAME_DISABLED && isDir(tmp_path) && fix_ps3_extra(mem))
+		{
+			savefile(filename, paramsfo, msiz);
+		}
+
+		tmp_path[10]=0;
+
+		// get titleid & fix game folder if version is higher than cfw
+		if((fix_param_sfo(mem, titleID) || webman_config->fixgame==FIX_GAME_FORCED) && webman_config->fixgame!=FIX_GAME_DISABLED && !strstr(tmp_path, "/dev_bdvd"))
+		{
+			savefile(filename, paramsfo, msiz);
+
+			sprintf(filename, STR_FIXING, _path);
+			show_msg(filename);
+
+			// fix game folder
+			fix_in_progress=true; fix_aborted=false;
+			sprintf(filename, "%s/PS3_GAME/USRDIR", _path);
+			fix_game(filename);
+			fix_in_progress=false;
+
+			if(webman_config->fixgame==FIX_GAME_FORCED) {webman_config->fixgame=FIX_GAME_QUICK; save_settings();}
+		}
+#endif
+	}
+	// ----
 
 	//----------------------------------
 	// map game to /dev_bdvd & /app_home

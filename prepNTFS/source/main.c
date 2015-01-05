@@ -474,6 +474,40 @@ int SaveFile(char *path, char *mem, int file_size)
     return SUCCESS;
 }
 
+static void get_titleid(char *filename, char *titleID)
+{
+	u16 pos, str, dat, indx=0;
+
+	char paramsfo[4096];
+	unsigned char *mem = (u8*)paramsfo;
+
+	int fd = ps3ntfs_open(filename, O_RDONLY, 0);
+	if(fd >= 0)
+	{
+        uint64_t size = 0;
+        ps3ntfs_read(fd, (void *) paramsfo, size);
+        ps3ntfs_close(fd);
+	}
+
+	str=(mem[0x8]+(mem[0x9]<<8));
+	dat=pos=(mem[0xc]+(mem[0xd]<<8));
+	memset(titleID, 0, 16);
+
+	while(str<4090)
+	{
+		if((mem[str]==0) || (str>=dat)) break;
+
+		if(!memcmp((char *) &mem[str], "TITLE_ID", 8))
+		{
+			strncpy(titleID, (char *) &mem[pos], 9); break;
+		}
+
+		while(mem[str]) str++;str++;
+		pos+=(mem[0x1c+indx]+(mem[0x1d+indx]<<8));
+		indx+=0x10;
+	}
+}
+
 int ExtractFileFromISO(char *iso_file, char *file, char *outfile)
 {
     int fd = ps3ntfs_open(iso_file, O_RDONLY, 0);
@@ -591,6 +625,20 @@ int main(int argc, const char* argv[])
 	char filename[512];
 	bool is_iso = false;
 
+	bool mmCM_found = false; char mmCM_cache[512], mmCM_path[512], titleID[16];
+
+	sprintf(mmCM_cache, "%s", "/dev_hdd0/game/BLES80608/USRDIR/cache");
+	if(file_exists(mmCM_cache)) mmCM_found=true;
+    else
+    {sprintf(mmCM_cache, "%s", "/dev_hdd0/game/NPEA00374/USRDIR/cache");
+	if(file_exists(mmCM_cache)) mmCM_found=true;
+    else
+    {sprintf(mmCM_cache, "%s", "/dev_hdd0/tmp/game_repo/main/cache");
+	if(file_exists(mmCM_cache)) mmCM_found=true;
+    }
+    }
+
+
 //--- hold CROSS to keep previous cached files
 //--- hold CROSS
 
@@ -697,12 +745,34 @@ int main(int argc, const char* argv[])
 
 								if (m==0)
 								{
-									sprintf(wm_path, "/dev_hdd0/tmp/wmtmp/%s.PNG", filename);
-									if(file_exists(wm_path)==false)
-										ExtractFileFromISO(path, "/PS3_GAME/ICON0.PNG;1", wm_path);
+									titleID[0]=0;
+
 									sprintf(wm_path, "/dev_hdd0/tmp/wmtmp/%s.SFO", filename);
 									if(file_exists(wm_path)==false)
 										ExtractFileFromISO(path, "/PS3_GAME/PARAM.SFO;1", wm_path);
+
+									if(mmCM_found)
+									{
+										get_titleid(wm_path, titleID);
+										sprintf(mmCM_path, "%s/%s.SFO", mmCM_cache, titleID);
+										if(file_exists(mmCM_path)==false)
+											sysLv2FsLink(wm_path, mmCM_path);
+									}
+
+									sprintf(wm_path, "/dev_hdd0/tmp/wmtmp/%s.PNG", filename);
+									if(file_exists(wm_path)==false)
+										ExtractFileFromISO(path, "/PS3_GAME/ICON0.PNG;1", wm_path);
+
+									if(mmCM_found && titleID[0]>' ' && file_exists(wm_path))
+									{
+										sprintf(mmCM_path, "%s/%s_320.PNG", mmCM_cache, titleID);
+										if(file_exists(mmCM_path)==false)
+											sysLv2FsLink(wm_path, mmCM_path);
+
+										sprintf(mmCM_path, "%s/%s_1920.PNG", mmCM_cache, titleID);
+										if(file_exists(mmCM_path)==false)
+											ExtractFileFromISO(path, "/PS3_GAME/PIC1.PNG;1", mmCM_path);
+									}
 								}
 								else
 								{
