@@ -32,15 +32,15 @@
 #include <time.h>
 #include <unistd.h>
 
-//#define ENGLISH_ONLY	1	// uncomment for english only version
+#define ENGLISH_ONLY	1	// uncomment for english only version
 
 //#define CCAPI			1	// uncomment for ccapi release
 #define COBRA_ONLY	1	// comment out for ccapi/non-cobra release
 //#define REX_ONLY		1	// shortcuts for REBUG REX CFWs / comment out for usual CFW
 
 //#define PS3MAPI		1
-//#define LITE_EDITION	1	// no ps3netsrv support, smaller memory footprint
-#define WEB_CHAT		1
+#define LITE_EDITION	1	// no ps3netsrv support, smaller memory footprint
+//#define WEB_CHAT		1
 #define FIX_GAME		1
 //#define EXTRA_FEAT	1
 //#define NOSINGSTAR	1
@@ -3481,6 +3481,9 @@ static void parse_param_sfo(unsigned char *mem, char *titleID, char *title)
 
 static bool fix_param_sfo(unsigned char *mem, char *titleID)
 {
+#ifdef FIX_GAME
+	u8 fcount=0;
+#endif
 	u16 pos, str, dat, indx=0; bool ret=false;
 
 	str=(mem[0x8]+(mem[0x9]<<8));
@@ -3494,6 +3497,11 @@ static bool fix_param_sfo(unsigned char *mem, char *titleID)
 		if(!memcmp((char *) &mem[str], "TITLE_ID", 8))
 		{
 			strncpy(titleID, (char *) &mem[pos], 9);
+#ifdef FIX_GAME
+			fcount++; if(fcount>=2) break;
+#else
+			break;
+#endif
 		}
 #ifdef FIX_GAME
 		else
@@ -3506,6 +3514,7 @@ static bool fix_param_sfo(unsigned char *mem, char *titleID)
 			{
 				mem[pos+1]='4'; mem[pos+3]='2'; mem[pos+4]='0'; ret=true;
 			}
+			fcount++; if(fcount>=2) break;
 		}
 #endif
 
@@ -3594,7 +3603,7 @@ uint64_t getlba(const char *s1, u16 n1, const char *s2, u16 n2, u16 start)
     u16 c=0; u32 lba=0;
     for(u16 n=start+0x1F; n<n1-n2; n++)
     {
-        c=0; while(s1[n+c]==s2[c++] && c<n2);
+        c=0; while(s1[n+c]==s2[c] && c<n2) c++;
         if(c==n2)
         {
             while(n>0x1D && s1[n--]!=0x01); n-=0x1C;
@@ -3606,20 +3615,20 @@ uint64_t getlba(const char *s1, u16 n1, const char *s2, u16 n2, u16 start)
 }
 
 
-void fix_iso(char *isofile, uint64_t maxbytes)
+void fix_iso(char *iso_file, uint64_t maxbytes)
 {
 	struct CellFsStat buf;
 
-	if(fix_aborted || cellFsStat(isofile, &buf)!=CELL_FS_SUCCEEDED) return;
+	if(fix_aborted || cellFsStat(iso_file, &buf)!=CELL_FS_SUCCEEDED) return;
 
 	int fd;
 
-	cellFsChmod(isofile, 0666); //fix file read-write permission
+	cellFsChmod(iso_file, 0666); //fix file read-write permission
 
-	if(cellFsOpen((char*)isofile, CELL_FS_O_RDWR, &fd, 0, 0)==CELL_FS_SUCCEEDED)
+	if(cellFsOpen((char*)iso_file, CELL_FS_O_RDWR, &fd, 0, 0)==CELL_FS_SUCCEEDED)
 	{
 		uint64_t chunk_size=_4KB_; char chunk[_4KB_];
-		uint64_t msiz1 = 0, msiz2 = 0, lba, pos=0x10000ULL;
+		uint64_t msiz1 = 0, msiz2 = 0, lba = 0, pos=0x10000ULL;
 
 		bool fix_sfo=true, fix_eboot=true;
 
@@ -3633,30 +3642,30 @@ void fix_iso(char *isofile, uint64_t maxbytes)
 
 			if(fix_sfo)
 			{
-				cellFsLseek(fd, pos, CELL_FS_SEEK_SET, &msiz1);
-				cellFsRead(fd, chunk, chunk_size, &msiz1);
+				cellFsLseek(fd, pos, CELL_FS_SEEK_SET, &msiz2);
+				cellFsRead(fd, chunk, chunk_size, &msiz1); if(msiz1<=0) break;
 
 				lba=getlba(chunk, msiz1, "PARAM.SFO;1", 11, 0);
 
 				if(lba)
 				{
 					lba*=0x800ULL; fix_sfo=false;
-					cellFsLseek(fd, lba, CELL_FS_SEEK_SET, &msiz1);
-					cellFsRead(fd, (void *)&chunk, chunk_size, &msiz1);
+					cellFsLseek(fd, lba, CELL_FS_SEEK_SET, &msiz2);
+					cellFsRead(fd, (void *)&chunk, chunk_size, &msiz1); if(msiz1<=0) break;
 
 					if(fix_param_sfo((unsigned char *)chunk, titleID))
 					{
-						cellFsLseek(fd, lba, CELL_FS_SEEK_SET, &msiz1);
+						cellFsLseek(fd, lba, CELL_FS_SEEK_SET, &msiz2);
 						cellFsWrite(fd, chunk, msiz1, &msiz2);
 					}
 					else goto exit_fix; //do not fix if sfo version is ok
 
 					if(size>lba) size=lba;
 
-					sprintf(chunk, STR_FIXING, isofile);
+					sprintf(chunk, STR_FIXING, iso_file);
 					show_msg(chunk);
 
-					lba=getlba(chunk, msiz1, "PS3_DISC.SFB;1", 14, 0); lba*=0x800ULL;
+					lba=getlba(chunk, msiz1, "PS3_DISC.SFB;1", 14, 0); lba*=0x800ULL; chunk_size=0x800; //1 sector
 					if(lba>0 && size>lba) size=lba;
 				}
 			}
@@ -3665,8 +3674,8 @@ void fix_iso(char *isofile, uint64_t maxbytes)
 
 			for(u8 t=(fix_eboot?0:1);t<5;t++)
 			{
-				cellFsLseek(fd, pos, CELL_FS_SEEK_SET, &msiz1);
-				cellFsRead(fd, chunk, chunk_size, &msiz1);
+				cellFsLseek(fd, pos, CELL_FS_SEEK_SET, &msiz2);
+				cellFsRead(fd, chunk, chunk_size, &msiz1); if(msiz1<=0) break;
 
 				start=0;
 
@@ -3675,7 +3684,7 @@ void fix_iso(char *isofile, uint64_t maxbytes)
 					sys_timer_usleep(1);
 					if(fix_aborted) goto exit_fix;
 
-					if(t==0) lba=getlba(chunk, msiz1, "EBOOT.BIN;1", 11, start);
+					if(t==0) {lba=getlba(chunk, msiz1, "EBOOT.BIN;1", 11, start); fix_eboot=false;}
 					if(t==1) lba=getlba(chunk, msiz1, ".SELF;1", 7, start);
 					if(t==2) lba=getlba(chunk, msiz1, ".self;1", 7, start);
 					if(t==3) lba=getlba(chunk, msiz1, ".SPRX;1", 7, start);
@@ -3684,23 +3693,26 @@ void fix_iso(char *isofile, uint64_t maxbytes)
 					if(lba)
 					{
 						lba*=0x800ULL; offset=(t>2)?0x258:0x428;
-						cellFsLseek(fd, lba, CELL_FS_SEEK_SET, &msiz1);
-						cellFsRead(fd, (void *)&chunk, chunk_size, &msiz1);
+						cellFsLseek(fd, lba, CELL_FS_SEEK_SET, &msiz2);
+						cellFsRead(fd, (void *)&chunk, chunk_size, &msiz1); if(msiz1<=0) break;
+
 						for(u8 i=0;i<8;i++) ps3_sys_version[i]=chunk[offset+i];
 
 						if((ps3_sys_version[0]+ps3_sys_version[1]+ps3_sys_version[2]+ps3_sys_version[3]+ps3_sys_version[4]+ps3_sys_version[5])==0 && (ps3_sys_version[6] & 0xFF)>0xA4)
 						{
 							ps3_sys_version[6]=0XA4; ps3_sys_version[7]=0X10;
-							cellFsLseek(fd, lba+offset, CELL_FS_SEEK_SET, &msiz1);
+							cellFsLseek(fd, lba+offset, CELL_FS_SEEK_SET, &msiz2);
 							cellFsWrite(fd, ps3_sys_version, 8, &msiz2);
 						}
 						else goto exit_fix;
 
-						if(t==0) {fix_eboot=false; break;}
+						if(t==0) break;
 
 					} else break;
 				}
 			}
+
+			if(msiz1<=0) break;
 
 			pos+=msiz1;
 			size-=msiz1;

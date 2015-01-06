@@ -34,6 +34,7 @@ typedef struct
 
 
 #define cue_buf  plugin_args
+#define _4KB_    4096
 
 uint8_t plugin_args[0x10000];
 char path[0x420];
@@ -355,7 +356,7 @@ int get_iso_file_pos(FILE *fp, unsigned char *path, u32 *flba, u64 *size)
 
     if(lba_folder == 0xffffffff) goto err;
 
-    memset(sectors, 0, 4096);
+    memset(sectors, 0, _4KB_);
 
     #ifdef USE_64BITS_LSEEK
     if(ps3ntfs_seek64(fd, ((s64) lba_folder) * SECTOR_SIZELL, SEEK_SET) != ((s64) lba_folder) * SECTOR_SIZELL) goto err;
@@ -478,16 +479,17 @@ static void get_titleid(char *filename, char *titleID)
 {
 	u16 pos, str, dat, indx=0;
 
-	char paramsfo[4096];
+	char paramsfo[_4KB_];
 	unsigned char *mem = (u8*)paramsfo;
 
 	int fd = ps3ntfs_open(filename, O_RDONLY, 0);
 	if(fd >= 0)
 	{
-        uint64_t size = 0;
+        uint64_t size = _4KB_;
         ps3ntfs_read(fd, (void *) paramsfo, size);
         ps3ntfs_close(fd);
 	}
+    else return;
 
 	str=(mem[0x8]+(mem[0x9]<<8));
 	dat=pos=(mem[0xc]+(mem[0xd]<<8));
@@ -751,7 +753,7 @@ int main(int argc, const char* argv[])
 									if(file_exists(wm_path)==false)
 										ExtractFileFromISO(path, "/PS3_GAME/PARAM.SFO;1", wm_path);
 
-									if(mmCM_found)
+									if(mmCM_found && titleID[0]>' ')
 									{
 										get_titleid(wm_path, titleID);
 										sprintf(mmCM_path, "%s/%s.SFO", mmCM_cache, titleID);
