@@ -86,6 +86,7 @@ int sys_get_version(u32 *version)
 	return_to_user_prog(int);
 }
 
+
 bool is_cobra(void)
 {
 	sysFSStat stat;
@@ -98,6 +99,22 @@ bool is_cobra(void)
 	if (version != 0x99999999)         return true;
 
 	return false;
+}
+
+#define SYSCALL8_OPCODE_PS3MAPI			 		0x7777
+#define PS3MAPI_OPCODE_GET_CORE_MINVERSION		0x0012
+
+int sys_get_minversion_ps3mapi(void)
+{
+	lv2syscall2(8, SYSCALL8_OPCODE_PS3MAPI, PS3MAPI_OPCODE_GET_CORE_MINVERSION);
+	return_to_user_prog(int);
+}
+
+
+bool is_ps3mapi(void)
+{
+	if (0x0111 <= sys_get_minversion_ps3mapi()) return true;
+	else return false;
 }
 
 int add_mygame()
@@ -282,6 +299,7 @@ int main()
 	sysLv2FsUnlink("/dev_hdd0/game/UPDWEBMOD/USRDIR/webftp_server_rebug_cobra_multi19.sprx");
 	sysLv2FsUnlink("/dev_hdd0/game/UPDWEBMOD/USRDIR/webftp_server_rebug_cobra_multi20.sprx");
 	sysLv2FsUnlink("/dev_hdd0/game/UPDWEBMOD/USRDIR/webftp_server_rebug_cobra_multi21.sprx");
+	sysLv2FsUnlink("/dev_hdd0/game/UPDWEBMOD/USRDIR/webftp_server_webchat.sprx");
 
 	// update languages
 	CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/LANG_EN.TXT","/dev_hdd0/tmp/wm_lang/LANG_EN.TXT");
@@ -380,12 +398,26 @@ int main()
 		sysLv2FsChmod("/dev_hdd0/game/IRISMAN01/USRDIR/webftp_server.sprx", 0777);
 		sysLv2FsUnlink("/dev_hdd0/game/IRISMAN01/USRDIR/webftp_server.sprx");
 
-		if((sysLv2FsStat("/dev_flash/rebug", &stat) == SUCCESS))
+		if((sysLv2FsStat("/dev_flash/rebug", &stat) == SUCCESS) && is_ps3mapi())
+			CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webftp_server_rebug_cobra_ps3mapi.sprx", "/dev_hdd0/game/IRISMAN01/USRDIR/webftp_server.sprx");
+		else if((sysLv2FsStat("/dev_flash/rebug", &stat) == SUCCESS))
 			CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webftp_server_rebug_cobra_multi23.sprx", "/dev_hdd0/game/IRISMAN01/USRDIR/webftp_server.sprx");
 		else if(lite)
 			CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webftp_server_lite.sprx", "/dev_hdd0/game/IRISMAN01/USRDIR/webftp_server.sprx");
+		else if(is_ps3mapi())
+			CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webftp_server_ps3mapi.sprx", "/dev_hdd0/game/IRISMAN01/USRDIR/webftp_server.sprx");
 		else
 			CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webftp_server.sprx", "/dev_hdd0/game/IRISMAN01/USRDIR/webftp_server.sprx");
+	}
+	else if((sysLv2FsStat("/dev_hdd0/game/IRISMAN01/USRDIR/webftp_server_ps3mapi.sprx", &stat) == SUCCESS))
+	{
+		sysLv2FsChmod("/dev_hdd0/game/IRISMAN01/USRDIR/webftp_server_ps3mapi.sprx", 0777);
+		sysLv2FsUnlink("/dev_hdd0/game/IRISMAN01/USRDIR/webftp_server_ps3mapi.sprx");
+
+		if((sysLv2FsStat("/dev_flash/rebug", &stat) == SUCCESS))
+			CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webftp_server_rebug_cobra_ps3mapi.sprx", "/dev_hdd0/game/IRISMAN01/USRDIR/webftp_server_ps3mapi.sprx");
+		else
+			CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webftp_server_ps3mapi.sprx", "/dev_hdd0/game/IRISMAN01/USRDIR/webftp_server_ps3mapi.sprx");
 	}
 
 	char ligne[255];
@@ -427,7 +459,11 @@ cont:
 
 		sysLv2FsChmod("/dev_blind/vsh/module/webftp_server.sprx", 0777);
 		sysLv2FsUnlink("/dev_blind/vsh/module/webftp_server.sprx");
-		CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webftp_server_rebug_cobra_multi23.sprx", "/dev_blind/vsh/module/webftp_server.sprx");
+		if(is_ps3mapi())
+			CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webftp_server_rebug_cobra_ps3mapi.sprx", "/dev_blind/vsh/module/webftp_server.sprx");
+		else
+			CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webftp_server_rebug_cobra_multi23.sprx", "/dev_blind/vsh/module/webftp_server.sprx");
+
 
 		// delete webMAN from hdd0
 		if((sysLv2FsStat("/dev_blind/vsh/module/webftp_server.sprx", &stat) == SUCCESS)) {
@@ -481,7 +517,12 @@ cont:
 					if(lite)
 						CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webftp_server_lite.sprx",ligne);
 					else
-						CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webftp_server.sprx",ligne);
+					{
+						if(is_ps3mapi())
+							CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webftp_server_ps3mapi.sprx", "/dev_hdd0/webftp_server.sprx");
+						else
+							CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webftp_server.sprx", "/dev_hdd0/webftp_server.sprx");
+					}
 					goto exit;
 				}
 			}
@@ -498,7 +539,12 @@ cont:
 		if(lite)
 			CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webftp_server_lite.sprx", "/dev_hdd0/webftp_server.sprx");
 		else
-			CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webftp_server.sprx", "/dev_hdd0/webftp_server.sprx");
+		{
+			if(is_ps3mapi())
+				CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webftp_server_ps3mapi.sprx", "/dev_hdd0/webftp_server.sprx");
+			else
+				CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webftp_server.sprx", "/dev_hdd0/webftp_server.sprx");
+		}
 	}
 
 exit:

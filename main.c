@@ -32,15 +32,15 @@
 #include <time.h>
 #include <unistd.h>
 
-#define ENGLISH_ONLY	1	// uncomment for english only version
+//#define ENGLISH_ONLY	1	// uncomment for english only version
 
 //#define CCAPI			1	// uncomment for ccapi release
 #define COBRA_ONLY	1	// comment out for ccapi/non-cobra release
 //#define REX_ONLY		1	// shortcuts for REBUG REX CFWs / comment out for usual CFW
 
 //#define PS3MAPI		1
-#define LITE_EDITION	1	// no ps3netsrv support, smaller memory footprint
-//#define WEB_CHAT		1
+//#define LITE_EDITION	1	// no ps3netsrv support, smaller memory footprint
+#define WEB_CHAT		1
 #define FIX_GAME		1
 //#define EXTRA_FEAT	1
 //#define NOSINGSTAR	1
@@ -188,7 +188,7 @@ SYS_MODULE_STOP(wwwd_stop);
 #define FAILED		-1
 
 #define FTP_RECV_SIZE  2048
-#define HTML_RECV_SIZE 1024
+#define HTML_RECV_SIZE 2048
 
 static u32 BUFFER_SIZE_FTP	= ( _128KB_);
 
@@ -313,7 +313,7 @@ typedef struct {
 } _meminfo;
 
 static bool is_rebug = false;
-static u8 extgd = 0;
+static u8 extgd = 0;       //external gameDATA
 static u8 profile = 0;
 
 static u8 loading_html=0;
@@ -442,6 +442,7 @@ typedef struct
 	char allow_ip[16];
 	uint8_t noss;
 	uint8_t fixgame;
+	uint8_t bus;
 } __attribute__((packed)) WebmanCfg;
 
 //combo
@@ -592,6 +593,7 @@ int lang_pos, fh;
 #ifdef NOSINGSTAR
 #define STR_NOSINGSTAR	"Remove SingStar icon"
 #endif
+#define STR_RESET_USB	"Disable Reset USB Bus"
 #define STR_TITLEID		"Include the ID as part of the title of the game"
 #define STR_FANCTRL		"Enable dynamic fan control"
 #define STR_NOWARN		"Disable temperature warnings"
@@ -753,6 +755,7 @@ char STR_NOWMDN[200]		= "Disable startup notification of WebMAN on the XMB";
 #ifdef NOSINGSTAR
 char STR_NOSINGSTAR[100]	= "Remove SingStar icon";
 #endif
+char STR_RESET_USB[100]		= "Disable Reset USB Bus";
 char STR_TITLEID[200]		= "Include the ID as part of the title of the game";
 char STR_FANCTRL[120]		= "Enable dynamic fan control";
 char STR_NOWARN[120]		= "Disable temperature warnings";
@@ -1410,9 +1413,9 @@ char h2a(char hex)
 {
 	char c = hex;
 	if(c>=0 && c<=9)
-		c += 0x30;
+		c += '0';
 	else if(c>=10 && c<=15)
-		c += 0x57;
+		c += 0x57; //a-f
 	return c;
 }
 
@@ -3473,9 +3476,7 @@ static void parse_param_sfo(unsigned char *mem, char *titleID, char *title)
 
 	if(webman_config->tid && strlen(titleID)==9 && (titleID[0]=='B' || titleID[0]=='N'))
 	{
-		strcat(title, " [");
-		strcat(title, titleID);
-		strcat(title, "]");
+		strcat(title, " ["); strcat(title, titleID); strcat(title, "]");
 	}
 }
 
@@ -3598,6 +3599,7 @@ static void fix_game(char *path)
 	}
 }
 
+#ifdef COBRA_ONLY
 uint64_t getlba(const char *s1, u16 n1, const char *s2, u16 n2, u16 start)
 {
     u16 c=0; u32 lba=0;
@@ -3724,6 +3726,7 @@ exit_fix:
 		cellFsClose(fd);
 	}
 }
+#endif
 #endif
 
 static void get_name(char *name, char *filename, u8 cache)
@@ -5697,6 +5700,8 @@ html_response:
 					if(!strstr(param, "psc=1")) webman_config->combo|=DISABLESH;
 #ifdef COBRA_ONLY
 					if(!strstr(param, "pdc=1")) webman_config->combo|=DISACOBRA;
+
+					if(strstr(param, "bus=1")) webman_config->bus=1;
 #endif
 #ifdef REX_ONLY
 					if(!strstr(param, "pr0=1")) webman_config->combo2|=REBUGMODE;
@@ -6484,9 +6489,10 @@ just_leave:
 					else
 					if(strstr(param, "extgd.ps3"))
 					{
-						if(strstr(param,"?enable"))  extgd=1; else
-						if(strstr(param,"?disable")) extgd=0; else
-													 extgd=extgd^1;
+						if(strstr(param,"?s")); else
+						if(strstr(param,"?e") || strstr(param, "?1")) extgd=1; else
+						if(strstr(param,"?d") || strstr(param, "?0")) extgd=0; else
+																	  extgd=extgd^1;
 
 						strcat(buffer, "External Game DATA: ");
 						if(set_gamedata_status(extgd, true))
@@ -6704,6 +6710,14 @@ just_leave:
 #ifdef NOSINGSTAR
 						add_check_box("ss", "1", STR_NOSINGSTAR,   NULL, (webman_config->noss), buffer);
 #endif
+						strcat(buffer, "<hr color=\"#0099FF\"/>");
+						add_check_box("ng" , "1", STR_NOGRP, NULL, (webman_config->nogrp), buffer);
+						add_check_box("ns" , "1", STR_NOSETUP,  NULL, (webman_config->noset), buffer);
+						add_check_box("nc" , "1", STR_MMCOVERS, NULL, (webman_config->nocov), buffer);
+						add_check_box("tid", "1", STR_TITLEID, NULL, (webman_config->tid), buffer);
+#ifdef COBRA_ONLY
+						add_check_box("bus", "1", STR_RESET_USB  , NULL, (webman_config->bus), buffer);
+#endif
 #ifdef FIX_GAME
 						if(c_firmware>=4.20f && c_firmware<4.66f)
 						{
@@ -6714,13 +6728,6 @@ just_leave:
 							strcat(buffer, "</select><br>");
 						}
 #endif
-
-						strcat(buffer, "<hr color=\"#0099FF\"/>");
-						add_check_box("ng" , "1", STR_NOGRP, NULL, (webman_config->nogrp), buffer);
-						add_check_box("ns" , "1", STR_NOSETUP,  NULL, (webman_config->noset), buffer);
-						add_check_box("nc" , "1", STR_MMCOVERS, NULL, (webman_config->nocov), buffer);
-						add_check_box("tid", "1", STR_TITLEID, NULL, (webman_config->tid), buffer);
-
 						strcat(buffer, "<hr color=\"#0099FF\"/><table width=\"900\" border=\"0\" cellspacing=\"2\" cellpadding=\"0\"><tr class=\"propfont\"><td>");
 
 						add_check_box("fc"  , "1", STR_FANCTRL, " </td><td>", (webman_config->fanc), buffer);
@@ -7125,7 +7132,7 @@ just_leave:
 												cellFsClose(fdw);
 
 												parse_param_sfo(mem, titleid, title);
-												if(titleid[0])
+												if(titleid[0] && titleid[8]>='0')
 												{
 													if(strstr(title, " ["))
 														sprintf(target, "/dev_hdd0/GAMES/%s", title);
@@ -9844,6 +9851,8 @@ void reset_settings()
 	webman_config->vIDPS1[0]=webman_config->vIDPS2[0]=0;
 	webman_config->vPSID1[0]=webman_config->vPSID2[0]=0;
 
+	webman_config->bus=0;      //enable reset USB bus
+
 	char upath[24];
 	struct CellFsStat buf;
 	sprintf(webman_config->uaccount, "%08i", 1);
@@ -11548,6 +11557,9 @@ static bool mount_with_mm(const char *_path0, u8 do_eject)
 				else
 					filecopy((char*)(PS2_CLASSIC_ISO_ICON ".bak"), (char*)PS2_CLASSIC_ISO_ICON, COPY_WHOLE_FILE);
 
+				// create "wm_noscan" to avoid re-scan of XML returning to XMB from PS2
+				savefile((char*)WMNOSCAN, NULL, 0);
+
 				sprintf(temp, "\"%s\" %s", strrchr(_path, '/') + 1, STR_LOADED2);
 			}
 			else
@@ -11811,6 +11823,8 @@ static bool mount_with_mm(const char *_path0, u8 do_eject)
 			else
 #endif
 			{
+				cellFsUnlink((char*)WMNOSCAN); // remove wm_noscan if PS2ISO was already mounted
+
 				if(strstr(_path, "/PS3ISO/"))
 				{
 #ifdef FIX_GAME
@@ -11874,6 +11888,9 @@ static bool mount_with_mm(const char *_path0, u8 do_eject)
 					tracks[0].is_audio = 0;
 					cobra_mount_ps2_disc_image(cobra_iso_list, 1, tracks, 1);
 					if(webman_config->fanc) fan_control( ((webman_config->ps2temp*255)/100), 0);
+
+					// create "wm_noscan" to avoid re-scan of XML returning to XMB from PS2
+					savefile((char*)WMNOSCAN, NULL, 0);
 				}
 				else if(strstr(_path, "/PSXISO/") || strstr(_path, "/PSXGAMES/"))
 				{
@@ -11960,9 +11977,9 @@ static bool mount_with_mm(const char *_path0, u8 do_eject)
 
 										sprintf(tcode, "%s", strrchr(templn, ' ')+1); tcode[8]=0;
 										if(strlen(tcode)!=8 || tcode[2]!=':' || tcode[5]!=':') continue;
-										tmin=(tcode[0]-0x30)*10 + (tcode[1]-0x30);
-										tsec=(tcode[3]-0x30)*10 + (tcode[4]-0x30);
-										tfrm=(tcode[6]-0x30)*10 + (tcode[7]-0x30);
+										tmin=(tcode[0]-'0')*10 + (tcode[1]-'0');
+										tsec=(tcode[3]-'0')*10 + (tcode[4]-'0');
+										tfrm=(tcode[6]-'0')*10 + (tcode[7]-'0');
 										if(use_pregap && num_tracks) tsec+=2;
 
 										if(num_tracks) tracks[num_tracks].is_audio = 1;
@@ -12066,6 +12083,7 @@ static bool mount_with_mm(const char *_path0, u8 do_eject)
 			// ----
 
 			// -- reset USB bus
+			if(!webman_config->bus)
 			{
 				if(strstr(_path, "/dev_usb") && isDir(_path))
 				{
@@ -12074,7 +12092,7 @@ static bool mount_with_mm(const char *_path0, u8 do_eject)
 
 					sys_timer_sleep(1); u8 indx=0;
 
-					if(strstr(_path, "/dev_usb00")) indx=_path[10]-0x30;
+					if(strstr(_path, "/dev_usb00")) indx=_path[10]-'0';
 
 					sys_storage_ext_fake_storage_event(7, 0, ((indx<6)?USB_MASS_STORAGE_1(indx):USB_MASS_STORAGE_2(indx)));
 					sys_storage_ext_fake_storage_event(3, 0, ((indx<6)?USB_MASS_STORAGE_1(indx):USB_MASS_STORAGE_2(indx)));
@@ -12095,15 +12113,11 @@ static bool mount_with_mm(const char *_path0, u8 do_eject)
 				}
 			}
 
-			// -- replace usb path with /dev_usb/
-			sprintf(filename, "%s", _path);
-			if(strstr(_path, "/dev_usb0")) sprintf(filename, "/dev_usb%s", _path+11);
-
 			// -- mount game folder
-			if(titleID[0] && titleID[8]>0x2f)
-				cobra_map_game(filename, titleID, &special_mode);
+			if(titleID[0] && titleID[8]>='0')
+				cobra_map_game(_path, titleID, &special_mode);
 			else
-				cobra_map_game(filename, (char*)"TEST00000", &special_mode);
+				cobra_map_game(_path, (char*)"TEST00000", &special_mode);
 		}
 		//return;
 	}

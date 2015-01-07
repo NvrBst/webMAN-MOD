@@ -44,6 +44,7 @@ STR_NOSPOOF		[Απενεργοποίηση του Spoof της έκδοσης τ
 STR_NOGRP		[Απενεργοποίηση οργάνωσης στο φάκελο "Τα παιχνίδια μου"]
 STR_NOWMDN		[Απενεργοποίηση ειδοποίησης για την εκκίνηση της webMAN στο XMB]
 STR_NOSINGSTAR	[Remove SingStar icon]
+STR_RESET_USB	[Disable Reset USB Bus]
 STR_TITLEID		[Συμπεριλάβετε το αναγνωριστικό ως μέρος του τίτλου του παιχνιδιού]
 STR_FANCTRL		[Ενεργοποίηση του ελέγχου για τον Ανεμιστήρα]
 STR_NOWARN		[Απενεργοποίηση των προειδοποιησεων θερμοκρασιας]
