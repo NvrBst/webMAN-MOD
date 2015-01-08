@@ -2647,6 +2647,7 @@ void update_language()
 #ifdef NOSINGSTAR
 		language("STR_NOSINGSTAR", STR_NOSINGSTAR);
 #endif
+		language("STR_RESET_USB", STR_RESET_USB);
 		language("STR_TITLEID", STR_TITLEID);
 		language("STR_FANCTRL", STR_FANCTRL);
 		language("STR_NOWARN", STR_NOWARN);
