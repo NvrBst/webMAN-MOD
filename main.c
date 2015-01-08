@@ -108,7 +108,7 @@ SYS_MODULE_STOP(wwwd_stop);
 
 #define MY_GAMES_XML			"/dev_hdd0/xmlhost/game_plugin/mygames.xml"
 
-#define WM_VERSION			"1.41.02 MOD"						// webMAN version
+#define WM_VERSION			"1.41.03 MOD"						// webMAN version
 #define MM_ROOT_STD			"/dev_hdd0/game/BLES80608/USRDIR"	// multiMAN root folder
 #define MM_ROOT_SSTL		"/dev_hdd0/game/NPEA00374/USRDIR"	// multiman SingStar® Stealth root folder
 #define MM_ROOT_STL			"/dev_hdd0/tmp/game_repo/main"		// stealthMAN root folder
@@ -3743,8 +3743,7 @@ static void get_name(char *name, char *filename, u8 cache)
 	if(strstr(filename, ".ntfs["))
 	{
 		while(name[flen]!='.') flen--; name[flen]=0;
-		if(flen>2 && name[flen-2]=='.' ) {name[flen-2]=0; flen-=2;}
-		if(flen>4 && name[flen-4]=='.' )  name[flen-4]=0;
+		if(flen>4 && name[flen-4]=='.' && (strcasestr(".iso.bin.enc", &name[flen-4]))) name[flen-4]=0;
 	}
 }
 
@@ -4179,7 +4178,7 @@ static void prepare_header(char *header, char *param, u8 is_binary)
 	strcpy(header, "HTTP/1.1 200 OK\r\nContent-Type: \0");
 	if(is_binary==1)
 	{
-		if(!extcasecmp(param, ".htm", 4))
+		if(!extcasecmp(param, ".htm", 4) || !extcasecmp(param, ".html", 5) || strcasestr(param, ".shtm"))
 			strcat(header, "text/html");
 		else
 		if(!extcasecmp(param, ".jpg", 4) || !extcasecmp(param, ".jpeg", 5) || !extcmp(param, ".STH", 4))
@@ -4913,7 +4912,7 @@ read_folder_xml:
 									{   // ntfs
 										if(f1< 2 || f1>6) continue; //2="PS3ISO", 3="BDISO", 4="DVDISO", 5="PS2ISO", 6="PSXISO"
 										if((uprofile >0) && !strstr(entry.d_name, SUFIX3(uprofile))) continue;
-										if((uprofile==0) && strstr(entry.d_name, ").ntfs[")) continue;
+										if((uprofile==0 && flen>17)) {for(u8 u=1;u<5;u++) if(strstr(entry.d_name + flen - 17, SUFIX3(u))) continue;}
 									}
 
 									if((strstr(param, "/PS3ISO") && f0<NTFS) || (f0==NTFS && f1==2 && !extcmp(entry.d_name, ".ntfs[PS3ISO]", 13)))
@@ -5959,8 +5958,11 @@ html_response:
 					strcat(buffer, ".gi{position:absolute;max-height:210px;max-width:260px;");
 
 				strcat(buffer, "position:absolute;bottom:0px;top:0px;left:0px;right:0px;margin:auto;}"
-							   ".gn{position:absolute;height:38px;bottom:0px;right:7px;left:7px;text-align:center;}--></style></head>"
-							   "<body bgcolor=\"#101010\"><font face=\"Courier New\"><b>");
+							   ".gn{position:absolute;height:38px;bottom:0px;right:7px;left:7px;text-align:center;}--></style>");
+
+				if(param[1]!=NULL) {sprintf(templn, "<base href=\"%s/\">", param); strcat(buffer, templn);}
+
+				strcat(buffer, "</head><body bgcolor=\"#101010\"><font face=\"Courier New\"><b>");
 
 				bool mount_ps3 = !is_popup && (strstr(param, "mount_ps3")!=NULL), forced_mount = false;
 
@@ -6188,7 +6190,6 @@ html_response:
 							t_line_entries *line_entry = (t_line_entries *)sysmem_html;
 							u16 max_entries=((is_busy?BUFFER_SIZE:BUFFER_SIZE_ALL))/LINELEN;
 
-							if(param[1]!=NULL) {sprintf(templn, "<base href=\"%s/\">", param); strcat(buffer, templn);}
                             strcat(buffer, "<table class=\"propfont\"><tr><td>");
 
 							strcpy(templn, param);
@@ -7549,7 +7550,7 @@ just_leave:
 													{   // ntfs
 														if(f1< 2 || f1>6) continue; //2="PS3ISO", 3="BDISO", 4="DVDISO", 5="PS2ISO", 6="PSXISO"
 														if((uprofile >0) && !strstr(entry.d_name, SUFIX3(uprofile))) continue;
-														if((uprofile==0) && strstr(entry.d_name, ").ntfs[")) continue;
+														if((uprofile==0 && flen>17)) {for(u8 u=1;u<5;u++) if(strstr(entry.d_name + flen - 17, SUFIX3(u))) continue;}
 													}
 
 													if((strstr(tmp_param, "/PS3ISO") && f0<NTFS) || (f0==NTFS && f1==2 && !extcmp(entry.d_name, ".ntfs[PS3ISO]", 13)))
