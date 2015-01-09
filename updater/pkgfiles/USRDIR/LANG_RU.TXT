@@ -21,7 +21,7 @@ STR_COPYING			[Копирование]
 STR_CPYDEST			[Назначение]
 STR_CPYFINISH		[Копирование готово!]
 STR_CPYABORT		[Копирование прервано!]
-STR_DELETE		[удалять]
+STR_DELETE		[Удалить]
 
 STR_SCAN1			[Сканировать устройства]
 STR_SCAN2			[Сканировать на наличие контента]
