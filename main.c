@@ -3746,6 +3746,10 @@ static void get_name(char *name, char *filename, u8 cache)
 		while(name[flen]!='.') flen--; name[flen]=0;
 		if(flen>4 && name[flen-4]=='.' && (strcasestr(".iso.bin.enc", &name[flen-4]))) name[flen-4]=0;
 	}
+	if(cache) return;
+	if(name[9]== '-' && name[10]=='[') {strcpy(&name[0], &name[11]); name[strlen(name)-1]='\0';}
+	if(name[10]=='-' && name[11]=='[') {strcpy(&name[0], &name[12]); name[strlen(name)-1]='\0';}
+	if(!webman_config->tid && strstr(name, " [")) *strstr(name, " [")='\0';
 }
 
 static bool get_cover(char *icon, char *titleid)
