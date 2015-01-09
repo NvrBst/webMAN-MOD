@@ -519,9 +519,9 @@ cont:
 					else
 					{
 						if(is_ps3mapi())
-							CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webftp_server_ps3mapi.sprx", "/dev_hdd0/webftp_server.sprx");
+							CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webftp_server_ps3mapi.sprx", ligne);
 						else
-							CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webftp_server.sprx", "/dev_hdd0/webftp_server.sprx");
+							CopyFile("/dev_hdd0/game/UPDWEBMOD/USRDIR/webftp_server.sprx", ligne);
 					}
 					goto exit;
 				}

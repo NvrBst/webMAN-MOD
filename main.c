@@ -108,7 +108,7 @@ SYS_MODULE_STOP(wwwd_stop);
 
 #define MY_GAMES_XML			"/dev_hdd0/xmlhost/game_plugin/mygames.xml"
 
-#define WM_VERSION			"1.41.03 MOD"						// webMAN version
+#define WM_VERSION			"1.41.04 MOD"						// webMAN version
 #define MM_ROOT_STD			"/dev_hdd0/game/BLES80608/USRDIR"	// multiMAN root folder
 #define MM_ROOT_SSTL		"/dev_hdd0/game/NPEA00374/USRDIR"	// multiman SingStar® Stealth root folder
 #define MM_ROOT_STL			"/dev_hdd0/tmp/game_repo/main"		// stealthMAN root folder
@@ -3752,6 +3752,13 @@ static bool get_cover(char *icon, char *titleid)
 {
 	struct CellFsStat s;
 
+	if(titleid[0]=='S' && covers_exist[1])
+	{
+		sprintf(icon, MM_ROOT_STD "/covers_retro/psx/%c%c%c%c_%c%c%c.%c%c_COV.JPG",
+				titleid[0], titleid[1], titleid[2], titleid[3],
+				titleid[4], titleid[5], titleid[6], titleid[7], titleid[8]); if(cellFsStat(icon, &s)==CELL_FS_SUCCEEDED) return true;
+	}
+
 #ifndef ENGLISH_ONLY
 	if(covers_exist[0])
 	{
@@ -3762,20 +3769,20 @@ static bool get_cover(char *icon, char *titleid)
 
 	if(covers_exist[1])
 	{
-		sprintf(icon, "%s/covers/%s.JPG", MM_ROOT_STD, titleid); if(cellFsStat(icon, &s)==CELL_FS_SUCCEEDED) return true;
-		sprintf(icon, "%s/covers/%s.PNG", MM_ROOT_STD, titleid); if(cellFsStat(icon, &s)==CELL_FS_SUCCEEDED) return true;
+		sprintf(icon, MM_ROOT_STD "/covers/%s.JPG", titleid); if(cellFsStat(icon, &s)==CELL_FS_SUCCEEDED) return true;
+		sprintf(icon, MM_ROOT_STD "/covers/%s.PNG", titleid); if(cellFsStat(icon, &s)==CELL_FS_SUCCEEDED) return true;
 	}
 
 	if(covers_exist[2])
 	{
-		sprintf(icon, "%s/covers/%s.JPG", MM_ROOT_STL, titleid); if(cellFsStat(icon, &s)==CELL_FS_SUCCEEDED) return true;
-		sprintf(icon, "%s/covers/%s.PNG", MM_ROOT_STL, titleid); if(cellFsStat(icon, &s)==CELL_FS_SUCCEEDED) return true;
+		sprintf(icon, MM_ROOT_STL "/covers/%s.JPG", titleid); if(cellFsStat(icon, &s)==CELL_FS_SUCCEEDED) return true;
+		sprintf(icon, MM_ROOT_STL "/covers/%s.PNG", titleid); if(cellFsStat(icon, &s)==CELL_FS_SUCCEEDED) return true;
 	}
 
 	if(covers_exist[3])
 	{
-		sprintf(icon, "%s/covers/%s.JPG", MM_ROOT_SSTL, titleid); if(cellFsStat(icon, &s)==CELL_FS_SUCCEEDED) return true;
-		sprintf(icon, "%s/covers/%s.PNG", MM_ROOT_SSTL, titleid); if(cellFsStat(icon, &s)==CELL_FS_SUCCEEDED) return true;
+		sprintf(icon, MM_ROOT_SSTL "/covers/%s.JPG", titleid); if(cellFsStat(icon, &s)==CELL_FS_SUCCEEDED) return true;
+		sprintf(icon, MM_ROOT_SSTL "/covers/%s.PNG", titleid); if(cellFsStat(icon, &s)==CELL_FS_SUCCEEDED) return true;
 	}
 
 	if(covers_exist[4])
@@ -3934,15 +3941,19 @@ static bool get_cover_from_name(char *icon, char *name, char *titleid)
 	struct CellFsStat s;
 	if(icon[0]!=0 && cellFsStat(icon, &s)==CELL_FS_SUCCEEDED) return true;
 
-	if(titleid[0]==0 && (strstr(name, "-[") || strstr(name, " [B") || strstr(name, " [N")))
+	if(titleid[0]==0 && (strstr(name, "-[") || strstr(name, " [B") || strstr(name, " [N") || strstr(name, " [S")))
 	{
 		if(strstr(name, "-["))
-			strncpy(titleid, name, 9);
+			strncpy(titleid, name, 10);
 		else if(strstr(name, " [B"))
-			strncpy(titleid, strstr(name, " [B") + 2, 9);
+			strncpy(titleid, strstr(name, " [B") + 2, 10); //BCES/BLES/BCUS/BLUS/etc.
+		else if(strstr(name, " [N"))
+			strncpy(titleid, strstr(name, " [N") + 2, 10); //NP*
 		else
-			strncpy(titleid, strstr(name, " [N") + 2, 9);
+			strncpy(titleid, strstr(name, " [S") + 2, 10); //SLES/SCES/SCUS/SLUS/etc.
 	}
+
+	if(titleid[4]=='-') strncpy(&titleid[4], &titleid[5], 5); titleid[9]='\0';
 
 	if(titleid[0] && get_cover(icon, titleid)) return true;
 
@@ -4953,12 +4964,7 @@ read_folder_xml:
 											{
 												if(cellFsRead(fs, (void *)&tempID, 11, &msiz) == CELL_FS_SUCCEEDED)
 												{
-													tempID[4]=tempID[5];
-													tempID[5]=tempID[6];
-													tempID[6]=tempID[7];
-													tempID[7]=tempID[8];
-													tempID[8]=tempID[9];
-													tempID[9]=0;
+													strncpy(&tempID[4], &tempID[5], 5); tempID[9]='\0';
 												}
 											}
 											cellFsClose(fs);
@@ -7575,12 +7581,7 @@ just_leave:
 																	{
 																		if(cellFsRead(fs, (void *)&tempID, 11, &msiz) == CELL_FS_SUCCEEDED)
 																		{
-																			tempID[4]=tempID[5];
-																			tempID[5]=tempID[6];
-																			tempID[6]=tempID[7];
-																			tempID[7]=tempID[8];
-																			tempID[8]=tempID[9];
-																			tempID[9]=0;
+																			strncpy(&tempID[4], &tempID[5], 5); tempID[9]='\0';
 																		}
 																	}
 																	cellFsClose(fs);
@@ -10650,6 +10651,8 @@ static void wwwd_thread(uint64_t arg)
 //	sys_timer_sleep(8);
 //	u32 mode=0;
 //	if(in_cobra(&mode)==0) cobra_mode=1;
+
+	if(isDir("/dev_flash/shity")) {sys_ppu_thread_exit(0); return;} // do not accept this
 
 	backup[0]=0;
 

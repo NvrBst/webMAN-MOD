@@ -1,4 +1,4 @@
-﻿STR_TRADBY			[- Русский перевод от andy_awe (ps-club.org/forum) обн. Danzel87</a><br/>]
+﻿STR_TRADBY			[- Русский перевод от andy_awe (ps-club.org/forum)</a><br/>]
 
 STR_FILES			[Файлы]
 STR_GAMES			[Игры]
@@ -21,7 +21,7 @@ STR_COPYING			[Копирование]
 STR_CPYDEST			[Назначение]
 STR_CPYFINISH		[Копирование готово!]
 STR_CPYABORT		[Копирование прервано!]
-STR_DELETE		[Удалить]
+STR_DELETE		[удалять]
 
 STR_SCAN1			[Сканировать устройства]
 STR_SCAN2			[Сканировать на наличие контента]
