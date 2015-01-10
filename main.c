@@ -491,6 +491,8 @@ typedef struct
 #define DEFAULT_AUTOBOOT_PATH    "/dev_hdd0/GAMES/AUTOBOOT"
 #endif
 
+#define ISO_EXTENSIONS           ".iso.cue.img.mdf.bin"
+
 uint64_t get_fan_policy_offset=0;
 uint64_t set_fan_policy_offset=0;
 
@@ -3752,7 +3754,8 @@ static void get_name(char *name, char *filename, u8 cache)
 	if(strstr(filename, ".ntfs["))
 	{
 		while(name[flen]!='.') flen--; name[flen]=0;
-		if(flen>4 && name[flen-4]=='.' && (strcasestr(".iso.bin.cue.img.mdf.enc", &name[flen-4]))) name[flen-4]=0;
+		if(flen>4 && name[flen-4]=='.' && (strcasestr(ISO_EXTENSIONS, &name[flen-4]))) name[flen-4]=0; else
+		if(!extcmp(name, ".BIN.ENC", 8)) name[flen-8]=0;
 	}
 	if(cache) return;
 	if(name[9]== '-' && name[10]=='[') {strcpy(&name[0], &name[11]); name[strlen(name)-1]='\0';}
@@ -6322,7 +6325,7 @@ html_response:
 
 											if(is_dir)
 												{sprintf(fsize, "<a href=\"/mount.ps3%s\">&lt;dir&gt;</a>", templn); dirs++;}
-											else if((flen > 4 && strcasestr(".iso.cue.img.mdf.bin", data[n].name+flen-4)) || strstr(data[n].name, ".ntfs[") || !extcmp(data[n].name, ".BIN.ENC", 8))
+											else if((flen > 4 && data[n].name[flen-4]=='.' && strcasestr(ISO_EXTENSIONS, data[n].name+flen-4)) || strstr(data[n].name, ".ntfs[") || !extcmp(data[n].name, ".BIN.ENC", 8))
 											{
 												if( strcasestr(data[n].name, ".iso.") && extcasecmp(data[n].name, ".iso.0", 6) )
 													sprintf(fsize, "%llu %s", sz, sf);
@@ -6422,7 +6425,7 @@ html_response:
 										dirs++;
 									}
 #ifdef COBRA_ONLY
-									else if((flen > 4 && strcasestr(".iso.cue.img.mdf.bin", entry.d_name+flen-4)) || strstr(entry.d_name, ".ntfs[") || !extcmp(entry.d_name, ".BIN.ENC", 8))
+									else if((flen > 4 && entry.d_name[flen-4]=='.' && strcasestr(ISO_EXTENSIONS, entry.d_name+flen-4)) || strstr(entry.d_name, ".ntfs[") || !extcmp(entry.d_name, ".BIN.ENC", 8))
 									{
 										if( strcasestr(entry.d_name, ".iso.") && extcasecmp(entry.d_name, ".iso.0", 6) )
 											sprintf(fsize, "%llu %s", sz, sf);
@@ -12571,6 +12574,8 @@ patch:
 #endif
 
 exit_mount:
+	if(ret && extcmp(_path, ".BIN.ENC", 8) && !isDir("/dev_bdvd")) ret = false;
+
 	is_mounting=false;
 	max_mapped=0;
     return ret;

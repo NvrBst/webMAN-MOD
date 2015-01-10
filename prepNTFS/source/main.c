@@ -728,7 +728,7 @@ int main(int argc, const char* argv[])
 							{
 								for(u8 e=0;e<8;e++)
 								{
-									if(e>1 && m==1) break;
+									if(e>1 && m==0) break;
 									sprintf(filename, "%s%s", dir.d_name, extensions[e]);
 									sprintf(direntry, "%s/%s", dir.d_name, filename);
 
