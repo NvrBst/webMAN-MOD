@@ -76,7 +76,7 @@ char search_url[50] = "http://google.com/search?q=";
   #ifdef PS3MAPI
     #define EDITION " [PS3M API]"
   #else
-   #ifdef Rebug
+   #ifdef REX_ONLY
     #define EDITION " [Rebug]"
    #else
     #define EDITION ""
@@ -101,6 +101,7 @@ SYS_MODULE_STOP(wwwd_stop);
 #define REBUG_COBRA_PATH	"/dev_blind/rebug/cobra/"
 #define SYS_COBRA_PATH		"/dev_blind/sys/"
 #define PS2_CLASSIC_TOGGLER "/dev_hdd0/classic_ps2"
+#define REBUG_TOOLBOX		"/dev_hdd0/game/RBGTLBOX2/USRDIR/"
 
 #define PS2_CLASSIC_PLACEHOLDER  "/dev_hdd0/game/PS2U10000/USRDIR"
 #define PS2_CLASSIC_ISO_PATH     "/dev_hdd0/game/PS2U10000/USRDIR/ISO.BIN.ENC"
@@ -478,11 +479,9 @@ typedef struct
 #define XMLREFRSH (1<<6)
 #define UMNT_GAME (1<<7)
 
-#ifdef REX_ONLY
 #define REBUGMODE (1<<13)
 #define NORMAMODE (1<<14)
 #define DEBUGMENU (1<<15)
-#endif
 
 #define AUTOBOOT_PATH            "/dev_hdd0/PS3ISO/AUTOBOOT.ISO"
 
@@ -917,6 +916,7 @@ static void do_umount_iso(void);
 static bool mount_with_mm(const char *_path, u8 do_eject);
 void eject_insert(u8 eject, u8 insert);
 
+bool from_reboot = false;
 bool copy_in_progress = false;
 bool copy_aborted = false;
 bool fix_in_progress = false;
@@ -4179,6 +4179,8 @@ static void mount_autoboot()
 
 	bool do_mount=false;
 
+	if(from_reboot && !path[0] && strstr(path, "/PS2")) return; //avoid re-launch PS2 returning to XMB
+
     // wait few seconds until path becomes ready
 	if(strlen(path)>10 || (cobra_mode && strstr(path, "/net")!=NULL))
 	{
@@ -4382,8 +4384,6 @@ static void handleclient(u64 conn_s_p)
 
 		init_running=1;
 
-		is_rebug=isDir("/dev_flash/rebug");
-
 		//identify covers folders to be scanned
 #ifndef ENGLISH_ONLY
 													covers_exist[0]=isDir(COVERS_PATH);
@@ -4556,9 +4556,10 @@ static void handleclient(u64 conn_s_p)
 
 		char xml[128]; sprintf(xml, MY_GAMES_XML);
 
-		if(conn_s_p==START_DAEMON && ((webman_config->refr==1) || cellFsStat((char*)WMNOSCAN, &buf)==CELL_FS_SUCCEEDED))
+		if(conn_s_p==START_DAEMON && ((webman_config->refr==1) || from_reboot))
 		{
 			cellFsUnlink((char*)WMNOSCAN);
+
 			mount_autoboot();
 
 			if(cellFsStat((char*)xml, &buf)==CELL_FS_SUCCEEDED)
@@ -7033,22 +7034,21 @@ just_leave:
 
 								if(cellFsStat(tempstr, &buf)!=CELL_FS_SUCCEEDED)
 								{
-									get_name(tempstr, (strrchr(param, '/')+1), 1);
-									strcat(tempstr, ".PNG");
-								}
+									char fpath[MAX_PATH_LEN], fname[MAX_PATH_LEN], tempID[10]; tempstr[0]=0;
 
-								if(cellFsStat(tempstr, &buf)!=CELL_FS_SUCCEEDED)
-								{
-									get_name(tempstr, param+plen, 0);
-									strcat(tempstr, ".png");
-									if(cellFsStat(tempstr, &buf)!=CELL_FS_SUCCEEDED)
+									// get iso name
+									strcpy(fname, strrchr(param+plen, '/')+1);
+
+									// get title ID from name and get icon
+									get_cover_from_name(tempstr, fname, tempID);
+
+									// get default icon
+									if(!tempstr[0])
 									{
-										tempstr[strlen(tempstr)-3]='j';
-										tempstr[strlen(tempstr)-2]='p';
+										strcpy(fpath, param+plen); fpath[strlen(fpath)-strlen(fname)-1]=0;
+										get_default_icon(tempstr, fpath, fname, 0, 0, 0);
 									}
 								}
-
-								get_default_icon(tempstr, param+plen, param+plen, 0, 0, 0);
 
 								strenc(enc_dir_name, tempstr);
 
@@ -9123,39 +9123,55 @@ DEBUG  Menu Switcher : L3+L2+X
 						{
 								enable_dev_blind((char*)"Swapping ps2emu activated!");
 #ifdef REX_ONLY
-								if(cellFsStat((char*)"/dev_hdd0/game/RBGTLBOX2/USRDIR/ps2_netemu.self", &s)==CELL_FS_SUCCEEDED)
+								if(cellFsStat((char*)REBUG_TOOLBOX "ps2_netemu.self", &s)==CELL_FS_SUCCEEDED)
 								{
-									uint64_t size1; uint64_t size2;
+									uint64_t size1, size2;
 
-									size1 = 0; size2 = s.st_size;
-									if( cellFsStat((char*)PS2_EMU_PATH "ps2_netemu.self", &s)==CELL_FS_SUCCEEDED) size1 = s.st_size;
+									// ---- Backup PS2Emus to Rebug Toolbox folder ----
+									if( cellFsStat( (char*)REBUG_TOOLBOX "ps2_netemu.self.cobra", &s)!=CELL_FS_SUCCEEDED )
+										  filecopy( (char*)PS2_EMU_PATH  "ps2_netemu.self",
+													(char*)REBUG_TOOLBOX "ps2_netemu.self.cobra", COPY_WHOLE_FILE);
+
+									if( cellFsStat( (char*)REBUG_TOOLBOX "ps2_gxemu.self.cobra", &s)!=CELL_FS_SUCCEEDED )
+										  filecopy( (char*)PS2_EMU_PATH  "ps2_gxemu.self",
+													(char*)REBUG_TOOLBOX "ps2_gxemu.self.cobra", COPY_WHOLE_FILE);
+
+									if( cellFsStat( (char*)REBUG_TOOLBOX "ps2_emu.self.cobra", &s)!=CELL_FS_SUCCEEDED )
+										  filecopy( (char*)PS2_EMU_PATH  "ps2_emu.self",
+													(char*)REBUG_TOOLBOX "ps2_emu.self.cobra", COPY_WHOLE_FILE);
+
+									// ---- Swap ps2_netemu.self ----
+									size1 = size2 = 0;
+									if( cellFsStat((char*)PS2_EMU_PATH  "ps2_netemu.self", &s)==CELL_FS_SUCCEEDED) size1 = s.st_size;
+									if( cellFsStat((char*)REBUG_TOOLBOX "ps2_netemu.self", &s)==CELL_FS_SUCCEEDED) size2 = s.st_size;
 
 									show_msg((size1==size2) ?   (char*)"Restoring original Cobra ps2emu...":
 																(char*)"Switching to custom ps2emu...");
 
 									if(size1>0 && size2>0)
-										filecopy((size1==size2) ?   (char*)"/dev_hdd0/game/RBGTLBOX2/USRDIR/ps2_netemu.self.cobra":
-																	(char*)"/dev_hdd0/game/RBGTLBOX2/USRDIR/ps2_netemu.self",
-																	(char*)PS2_EMU_PATH "ps2_netemu.self", COPY_WHOLE_FILE);
+										filecopy((size1==size2) ?   (char*)REBUG_TOOLBOX "ps2_netemu.self.cobra":
+																	(char*)REBUG_TOOLBOX "ps2_netemu.self",
+																	(char*)PS2_EMU_PATH  "ps2_netemu.self", COPY_WHOLE_FILE);
 
+									// ---- Swap ps2_gxemu.self ----
 									size1 = size2 = 0;
-									if( cellFsStat((char*)PS2_EMU_PATH "ps2_gxemu.self", &s)==CELL_FS_SUCCEEDED) size1 = s.st_size;
-									if( cellFsStat((char*)"/dev_hdd0/game/RBGTLBOX2/USRDIR/ps2_gxemu.self", &s)==CELL_FS_SUCCEEDED) size2 = s.st_size;
+									if( cellFsStat((char*)PS2_EMU_PATH  "ps2_gxemu.self", &s)==CELL_FS_SUCCEEDED) size1 = s.st_size;
+									if( cellFsStat((char*)REBUG_TOOLBOX "ps2_gxemu.self", &s)==CELL_FS_SUCCEEDED) size2 = s.st_size;
 
 									if(size1>0 && size2>0)
-										filecopy((size1==size2) ?   (char*)"/dev_hdd0/game/RBGTLBOX2/USRDIR/ps2_gxemu.self.cobra":
-																	(char*)"/dev_hdd0/game/RBGTLBOX2/USRDIR/ps2_gxemu.self",
-																	(char*)PS2_EMU_PATH "ps2_gxemu.self", COPY_WHOLE_FILE);
+										filecopy((size1==size2) ?   (char*)REBUG_TOOLBOX "ps2_gxemu.self.cobra":
+																	(char*)REBUG_TOOLBOX "ps2_gxemu.self",
+																	(char*)PS2_EMU_PATH  "ps2_gxemu.self", COPY_WHOLE_FILE);
 
+									// ---- Swap ps2_emu.self ----
 									size1 = size2 = 0;
-									if( cellFsStat((char*)PS2_EMU_PATH "ps2_emu.self", &s)==CELL_FS_SUCCEEDED) size1 = s.st_size;
-									if( cellFsStat((char*)"/dev_hdd0/game/RBGTLBOX2/USRDIR/ps2_emu.self", &s)==CELL_FS_SUCCEEDED) size2 = s.st_size;
+									if( cellFsStat((char*)PS2_EMU_PATH  "ps2_emu.self", &s)==CELL_FS_SUCCEEDED) size1 = s.st_size;
+									if( cellFsStat((char*)REBUG_TOOLBOX "ps2_emu.self", &s)==CELL_FS_SUCCEEDED) size2 = s.st_size;
 
 									if(size1>0 && size2>0)
-										filecopy((size1==size2) ?   (char*)"/dev_hdd0/game/RBGTLBOX2/USRDIR/ps2_emu.self.cobra":
-																	(char*)"/dev_hdd0/game/RBGTLBOX2/USRDIR/ps2_emu.self",
-																	(char*)PS2_EMU_PATH "ps2_emu.self", COPY_WHOLE_FILE);
-
+										filecopy((size1==size2) ?   (char*)REBUG_TOOLBOX "ps2_emu.self.cobra":
+																	(char*)REBUG_TOOLBOX "ps2_emu.self",
+																	(char*)PS2_EMU_PATH  "ps2_emu.self", COPY_WHOLE_FILE);
 								}
 								else
 #endif
@@ -9886,6 +9902,9 @@ void reset_settings()
 	webman_config->vPSID1[0]=webman_config->vPSID2[0]=0;
 
 	webman_config->bus=0;      //enable reset USB bus
+
+	webman_config->combo=DISACOBRA; //disable combo for cobra toggle
+	webman_config->combo2|=(REBUGMODE|NORMAMODE|DEBUGMENU|PS2SWITCH); //disable combos for rebug/ps2 switch
 
 	char upath[24];
 	struct CellFsStat buf;
@@ -10707,6 +10726,9 @@ static void wwwd_thread(uint64_t arg)
 
 	WebmanCfg *webman_config = (WebmanCfg*) wmconfig;
 	reset_settings();
+
+
+	{struct CellFsStat buf; from_reboot = (cellFsStat((char*)WMNOSCAN, &buf)==CELL_FS_SUCCEEDED); is_rebug=isDir("/dev_flash/rebug");}
 
 	if(webman_config->blind) enable_dev_blind(NULL);
 
@@ -11932,29 +11954,14 @@ static bool mount_with_mm(const char *_path0, u8 do_eject)
 				{
 					if(!extcasecmp(_path, ".cue", 4))
 					{
-						int flen=strlen(cobra_iso_list[0]);
-						cobra_iso_list[0][flen-3]='B';
-						cobra_iso_list[0][flen-2]='I';
-						cobra_iso_list[0][flen-1]='N';
-
 						struct CellFsStat s;
-						if(cellFsStat(cobra_iso_list[0], &s)!=CELL_FS_SUCCEEDED)
+						int flen=strlen(cobra_iso_list[0]);
+
+						char extensions[8][8]={".BIN", ".bin", ".iso", ".ISO", ".img", ".IMG", ".mdf", ".MDF"};
+						for(u8 e=0; e<8; e++)
 						{
-							cobra_iso_list[0][flen-3]='b';
-							cobra_iso_list[0][flen-2]='i';
-							cobra_iso_list[0][flen-1]='n';
-						}
-						if(cellFsStat(cobra_iso_list[0], &s)!=CELL_FS_SUCCEEDED)
-						{
-							cobra_iso_list[0][flen-3]='I';
-							cobra_iso_list[0][flen-2]='S';
-							cobra_iso_list[0][flen-1]='O';
-						}
-						if(cellFsStat(cobra_iso_list[0], &s)!=CELL_FS_SUCCEEDED)
-						{
-							cobra_iso_list[0][flen-3]='i';
-							cobra_iso_list[0][flen-2]='s';
-							cobra_iso_list[0][flen-1]='o';
+							cobra_iso_list[0][flen-4]=0; strcat(cobra_iso_list[0], extensions[e]);
+							if(cellFsStat(cobra_iso_list[0], &s)==CELL_FS_SUCCEEDED) break;
 						}
 
 						unsigned int num_tracks=0;

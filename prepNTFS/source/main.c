@@ -611,7 +611,7 @@ int main(int argc, const char* argv[])
     DIR_ITER *pdir = NULL;
     struct stat st;
 	char c_path[4][8]={"PS3ISO", "BDISO", "DVDISO", "PSXISO"};
-	char extensions[4][8]={".iso", ".ISO", ".bin", ".BIN"};
+	char extensions[8][8]={".iso", ".ISO", ".bin", ".BIN", ".img", ".IMG", ".mdf", ".MDF"};
 	char cover_ext[4][8]={".jpg", ".png", ".PNG", ".JPG"};
 
 	snprintf(path, sizeof(path), "/dev_hdd0/tmp/wmtmp");
@@ -693,7 +693,7 @@ int main(int argc, const char* argv[])
 			{
 				for(u8 m=0;m<4;m++) //0="PS3ISO", 1="BDISO", 2="DVDISO", 3="PSXISO"
 				{
-					bool has_dirs = false; u8 d0 = 0;
+					bool has_dirs = false; u8 d0 = 0; u16 flen;
 
 		read_folder_ntfs:
 
@@ -707,8 +707,12 @@ int main(int argc, const char* argv[])
 					{
 						while(ps3ntfs_dirnext(pdir, dir.d_name, &st) == 0)
 						{
-							is_iso = ((strcasestr(dir.d_name, ".iso")) && (dir.d_name[strlen(dir.d_name)-1]=='o' || dir.d_name[strlen(dir.d_name)-1]=='O')) ||
-							 (m==3 && (strcasestr(dir.d_name, ".bin")) && (dir.d_name[strlen(dir.d_name)-1]=='n' || dir.d_name[strlen(dir.d_name)-1]=='N'));
+							flen = strlen(dir.d_name)-1; if(flen<3) continue;
+
+							is_iso =	((strcasestr(dir.d_name + flen - 3, ".iso")) && (dir.d_name[flen]=='o' || dir.d_name[flen]=='O')) ||
+							  (m>1 && ( ((strcasestr(dir.d_name + flen - 3, ".bin")) && (dir.d_name[flen]=='n' || dir.d_name[flen]=='N')) ||
+										((strcasestr(dir.d_name + flen - 3, ".img")) && (dir.d_name[flen]=='g' || dir.d_name[flen]=='G')) ||
+										((strcasestr(dir.d_name + flen - 3, ".mdf")) && (dir.d_name[flen]=='f' || dir.d_name[flen]=='F')) ));
 
 							if(is_iso)
                             {
@@ -722,9 +726,9 @@ int main(int argc, const char* argv[])
                             }
 							else if(!strstr(dir.d_name, "."))
 							{
-								for(u8 e=0;e<4;e++)
+								for(u8 e=0;e<8;e++)
 								{
-									if(e>1 && m<3) break;
+									if(e>1 && m==1) break;
 									sprintf(filename, "%s%s", dir.d_name, extensions[e]);
 									sprintf(direntry, "%s/%s", dir.d_name, filename);
 
