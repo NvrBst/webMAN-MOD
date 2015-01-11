@@ -32,15 +32,15 @@
 #include <time.h>
 #include <unistd.h>
 
-#define ENGLISH_ONLY	1	// uncomment for english only version
+//#define ENGLISH_ONLY	1	// uncomment for english only version
 
-//#define CCAPI			1	// uncomment for ccapi release
-#define COBRA_ONLY	1	// comment out for ccapi/non-cobra release
+#define CCAPI			1	// uncomment for ccapi release
+//#define COBRA_ONLY	1	// comment out for ccapi/non-cobra release
 //#define REX_ONLY		1	// shortcuts for REBUG REX CFWs / comment out for usual CFW
 
 //#define PS3MAPI		1
-#define LITE_EDITION	1	// no ps3netsrv support, smaller memory footprint
-//#define WEB_CHAT		1
+//#define LITE_EDITION	1	// no ps3netsrv support, smaller memory footprint
+#define WEB_CHAT		1
 #define FIX_GAME		1
 //#define EXTRA_FEAT	1
 //#define NOSINGSTAR	1
@@ -181,6 +181,8 @@ SYS_MODULE_STOP(wwwd_stop);
 #define _256KB_		 262144UL
 #define  _1MB_		1048576UL
 #define _32MB_		33554432UL
+
+#define MODE		0777
 
 #define LINELEN			512 // file listing
 #define MAX_LINE_LEN	512 // html games
@@ -536,7 +538,7 @@ static char wm_icons[12][60]={"/dev_hdd0/tmp/wm_icons/icon_wm_album_ps3.png", //
                               "/dev_hdd0/tmp/wm_icons/icon_wm_eject.png"      //icon/icon_home.png  [11]
                              };
 
-static bool covers_exist[7];
+static bool covers_exist[6];
 static char local_ip[16] = "127.0.0.1";
 
 uint64_t convertH(char *val);
@@ -1021,7 +1023,7 @@ void saveBMP()
 		CellRtcDateTime t;
 		cellRtcGetCurrentClockLocalTime(&t);
 
-		cellFsMkdir((char*)"/dev_hdd0/PICTURE", 0777);
+		cellFsMkdir((char*)"/dev_hdd0/PICTURE", MODE);
 
 		char bmp[0x50];
 		vsh_sprintf(bmp,"/dev_hdd0/PICTURE/ScreenShot_%04d.%02d.%02d_%02d_%02d_%02d.bmp",t.year,t.month,t.day,t.hour,t.minute,t.second);
@@ -1078,7 +1080,7 @@ bool rec_start()
 	CellRtcDateTime t;
 	cellRtcGetCurrentClockLocalTime(&t);
 
-	cellFsMkdir((char*)"/dev_hdd0/plugins", 0777);
+	cellFsMkdir((char*)"/dev_hdd0/plugins", MODE);
     game_name(); vsh_sprintf((char*)&recOpt[0x6],"/dev_hdd0/plugins/%s_%04d.%02d.%02d_%02d_%02d_%02d.mp4",_game_name+4,t.year,t.month,t.day,t.hour,t.minute,t.second);
 
 	reco_open(-1); // memory container
@@ -1222,12 +1224,12 @@ int isDir(const char* path)
 int savefile(char *file, char *mem, u64 size)
 {
 	u64 written; int fd=0;
-	cellFsChmod(file, 0666);
+	cellFsChmod(file, MODE);
 	if(cellFsOpen(file, CELL_FS_O_CREAT| CELL_FS_O_TRUNC |CELL_FS_O_WRONLY, &fd, NULL, 0) == CELL_FS_SUCCEEDED)
 	{
 		if(size) cellFsWrite(fd, (void *)mem, size, &written);
 		cellFsClose(fd);
-		cellFsChmod(file, 0666);
+		cellFsChmod(file, MODE);
         return CELL_FS_SUCCEEDED;
 	}
     else
@@ -1288,7 +1290,7 @@ int filecopy(char *file1, char *file2, uint64_t maxbytes)
 				if(copy_aborted)
 					cellFsUnlink(file2); //remove incomplete file
 				else
-					cellFsChmod(file2, 0666);
+					cellFsChmod(file2, MODE);
 
 				ret=size;
 			}
@@ -1349,7 +1351,7 @@ int folder_copy(char *path1, char *path2)
 	char source[MAX_PATH_LEN];
 	char target[MAX_PATH_LEN];
 
-	cellFsMkdir((char*)path2, 0777);
+	cellFsMkdir((char*)path2, MODE);
     copy_aborted=false;
 
 	if(cellFsOpendir(path1, &fd) == CELL_FS_SUCCEEDED)
@@ -1388,7 +1390,7 @@ int import_edats(char *path1, char *path2)
 	char source[MAX_PATH_LEN];
 	char target[MAX_PATH_LEN];
 
-	cellFsMkdir((char*)path2, 0777);
+	cellFsMkdir((char*)path2, MODE);
 	if(cellFsStat(path2, &buf)!=CELL_FS_SUCCEEDED) return FAILED;
 
 	copy_aborted=false;
@@ -2924,7 +2926,7 @@ int set_gamedata_status(u8 status, bool do_mount)
 		if(n>7)
 		{
 			for(n=0; n<8; n++) {sprintf(gamei_path, "/dev_usb00%i", n); if(isDir(gamei_path)) break;}
-			if(n<8) {sprintf(gamei_path, "/dev_usb00%i/GAMEI", n); if(cellFsMkdir((char*)gamei_path, 0777)==CELL_FS_SUCCEEDED) n=99;}
+			if(n<8) {sprintf(gamei_path, "/dev_usb00%i/GAMEI", n); if(cellFsMkdir((char*)gamei_path, MODE)==CELL_FS_SUCCEEDED) n=99;}
 		}
 
 		if(n<8)
@@ -3462,7 +3464,7 @@ static void parse_param_sfo(unsigned char *mem, char *titleID, char *title)
 
 	str=(mem[0x8]+(mem[0x9]<<8));
 	dat=pos=(mem[0xc]+(mem[0xd]<<8));
-	memset(titleID, 0, 16);
+	memset(titleID, 0, 10);
 	memset(title, 0, 64);
 
 	while(str<4090)
@@ -3501,7 +3503,7 @@ static bool fix_param_sfo(unsigned char *mem, char *titleID)
 
 	str=(mem[0x8]+(mem[0x9]<<8));
 	dat=pos=(mem[0xc]+(mem[0xd]<<8));
-	memset(titleID, 0, 16);
+	memset(titleID, 0, 10);
 
 	while(str<4090)
 	{
@@ -3583,7 +3585,7 @@ static void fix_game(char *path)
 			{
 				int fdw, offset; uint64_t msiz = 0; char ps3_sys_version[8];
 
-				cellFsChmod(filename, 0666); //fix file read-write permission
+				cellFsChmod(filename, MODE); //fix file read-write permission
 
 				if(cellFsOpen(filename, CELL_FS_O_RDWR, &fdw, NULL, 0)==CELL_FS_SUCCEEDED)
 				{
@@ -3637,7 +3639,7 @@ void fix_iso(char *iso_file, uint64_t maxbytes)
 
 	int fd;
 
-	cellFsChmod(iso_file, 0666); //fix file read-write permission
+	cellFsChmod(iso_file, MODE); //fix file read-write permission
 
 	if(cellFsOpen((char*)iso_file, CELL_FS_O_RDWR, &fd, 0, 0)==CELL_FS_SUCCEEDED)
 	{
@@ -3768,13 +3770,6 @@ static bool get_cover(char *icon, char *titleid)
 {
 	struct CellFsStat s;
 
-	if(titleid[0]=='S' && covers_exist[1])
-	{
-		sprintf(icon, MM_ROOT_STD "/covers_retro/psx/%c%c%c%c_%c%c%c.%c%c_COV.JPG",
-				titleid[0], titleid[1], titleid[2], titleid[3],
-				titleid[4], titleid[5], titleid[6], titleid[7], titleid[8]); if(cellFsStat(icon, &s)==CELL_FS_SUCCEEDED) return true;
-	}
-
 #ifndef ENGLISH_ONLY
 	if(covers_exist[0])
 	{
@@ -3785,6 +3780,13 @@ static bool get_cover(char *icon, char *titleid)
 
 	if(covers_exist[1])
 	{
+		if(titleid[0]=='S')
+		{
+			sprintf(icon, MM_ROOT_STD "/covers_retro/psx/%c%c%c%c_%c%c%c.%c%c_COV.JPG",
+					titleid[0], titleid[1], titleid[2], titleid[3],
+					titleid[4], titleid[5], titleid[6], titleid[7], titleid[8]); if(cellFsStat(icon, &s)==CELL_FS_SUCCEEDED) return true;
+		}
+
 		sprintf(icon, MM_ROOT_STD "/covers/%s.JPG", titleid); if(cellFsStat(icon, &s)==CELL_FS_SUCCEEDED) return true;
 		sprintf(icon, MM_ROOT_STD "/covers/%s.PNG", titleid); if(cellFsStat(icon, &s)==CELL_FS_SUCCEEDED) return true;
 	}
@@ -3811,12 +3813,6 @@ static bool get_cover(char *icon, char *titleid)
 	{
 		sprintf(icon, "/dev_hdd0/GAMEZ/covers/%s.JPG", titleid); if(cellFsStat(icon, &s)==CELL_FS_SUCCEEDED) return true;
 		sprintf(icon, "/dev_hdd0/GAMEZ/covers/%s.PNG", titleid); if(cellFsStat(icon, &s)==CELL_FS_SUCCEEDED) return true;
-	}
-
-	if(covers_exist[6])
-	{
-		sprintf(icon, WMTMP "/%s.JPG", titleid); if(cellFsStat(icon, &s)==CELL_FS_SUCCEEDED) return true;
-		sprintf(icon, WMTMP "/%s.PNG", titleid); if(cellFsStat(icon, &s)==CELL_FS_SUCCEEDED) return true;
 	}
 
 	icon[0]=0;
@@ -4088,7 +4084,7 @@ static void enable_classic_ps2_mode()
 	if(cellFsOpen((char*)PS2_CLASSIC_TOGGLER, CELL_FS_O_CREAT| CELL_FS_O_TRUNC |CELL_FS_O_WRONLY, &fd, NULL, 0) == CELL_FS_SUCCEEDED)
 	{
 		cellFsClose(fd);
-		cellFsChmod((char*)PS2_CLASSIC_TOGGLER, 0777);
+		cellFsChmod((char*)PS2_CLASSIC_TOGGLER, MODE);
 	}
 }
 
@@ -4111,7 +4107,7 @@ static void disable_classic_ps2_mode()
 			uint64_t msiz = 0;
 			cellFsWrite(fd, (void *)&iso_bin_enc, 0x4000, &msiz);
 			cellFsClose(fd);
-			cellFsChmod((char*)PS2_CLASSIC_ISO_PATH, 0666);
+			cellFsChmod((char*)PS2_CLASSIC_ISO_PATH, MODE);
 		}
 	}
 */
@@ -4331,8 +4327,7 @@ static void get_value(char *text, char *url, u16 size)
 	u16 n;
 	for(n=0;n<size;n++)
 	{
-		if(url[n]==0) break;
-		if(url[n]=='&') break;
+		if(url[n]=='&' || url[n]==0) break;
 		if(url[n]=='+') url[n]=' ';
 		text[n]=url[n];
 	}
@@ -4397,7 +4392,6 @@ static void handleclient(u64 conn_s_p)
 		sprintf(templn, "%s/covers", MM_ROOT_SSTL); covers_exist[3]=isDir(templn);
 													covers_exist[4]=isDir("/dev_hdd0/GAMES/covers");
 													covers_exist[5]=isDir("/dev_hdd0/GAMEZ/covers");
-													covers_exist[6]=isDir(WMTMP);
 
 		for(u8 i=0; i<12; i++)
 		{
@@ -4442,8 +4436,8 @@ static void handleclient(u64 conn_s_p)
 			}
 
 
-			if(cobra_config->ps2softemu==0 && cobra_get_ps2_emu_type()==PS2_EMU_SW)
-				cobra_config->ps2softemu=1;
+			if( cobra_config->ps2softemu == 0 && cobra_get_ps2_emu_type()==PS2_EMU_SW )
+				cobra_config->ps2softemu =  1;
 
 			cobra_write_config(cobra_config);
 
@@ -4619,9 +4613,9 @@ static void handleclient(u64 conn_s_p)
 		myxml		= (char*)sysmem+(BUFFER_SIZE)-4300;
 		myxml_items = (char*)sysmem3;
 
-		cellFsMkdir((char*)WMTMP, 0777);
-		cellFsMkdir((char*)"/dev_hdd0/xmlhost", 0777);
-		cellFsMkdir((char*)"/dev_hdd0/xmlhost/game_plugin", 0777);
+		cellFsMkdir((char*)WMTMP, MODE);
+		cellFsMkdir((char*)"/dev_hdd0/xmlhost", MODE);
+		cellFsMkdir((char*)"/dev_hdd0/xmlhost/game_plugin", MODE);
 		u32 key=0;
 
 		make_fb_xml(myxml);
@@ -4701,7 +4695,7 @@ static void handleclient(u64 conn_s_p)
 #ifndef COBRA_ONLY
 				if(IS_ISO_FOLDER && !(IS_PS2_FOLDER)) continue; // 0="GAMES", 1="GAMEZ", 5="PS2ISO", 10="video"
 #endif
-				if(key>1020) break;
+				if(key>1600) break;
 
 				cellRtcGetCurrentTick(&pTick);
 
@@ -4799,7 +4793,7 @@ read_folder_xml:
 					uint64_t msiz = 0;
 					u8 is_iso=0;
 					char icon[MAX_PATH_LEN];
-					char tempID[16];
+					char tempID[10];
 #ifdef COBRA_ONLY
 #ifndef LITE_EDITION
 					sys_addr_t data2=0;
@@ -4827,7 +4821,7 @@ read_folder_xml:
 #endif
 						)
 					{
-						if(key>1020) break;
+						if(key>1600) break;
 						cellRtcGetCurrentTick(&pTick);
 						icon[0]=tempID[0]=0;
 #ifdef COBRA_ONLY
@@ -4876,7 +4870,7 @@ read_folder_xml:
 										open_remote_file_2(ns, (char*)"/CLOSEFILE", &bytes_read);
 										cellFsClose(fdw);
 									}
-									cellFsChmod(templn, 0666);
+									cellFsChmod(templn, MODE);
 								}
 
 								get_title_and_id_from_sfo(templn, tempID, data[v3_entry].name, icon, tempstr);
@@ -5378,7 +5372,7 @@ continue_reading_folder_xml:
 			sprintf(myxml, "</XMBML>\r\n");
 		cellFsWrite(fdxml, (char*)myxml, strlen(myxml), NULL);
 		cellFsClose(fdxml);
-		cellFsChmod(xml, 0666);
+		cellFsChmod(xml, MODE);
 		u32 xmlsize=BUFFER_SIZE;
 
 
@@ -5801,15 +5795,6 @@ html_response:
 
 					webman_config->temp1=MY_TEMP;
 
-					/*
-					webman_config->fanm=3;
-
-					if(strstr(param, "fanm=0")) webman_config->fanm=0;
-					if(strstr(param, "fanm=1")) webman_config->fanm=1;
-					if(strstr(param, "fanm=2")) webman_config->fanm=2;
-					if(strstr(param, "fanm=3")) webman_config->fanm=3;
-					*/
-
 					char *pos;
 
 					webman_config->minfan=MIN_FANSPEED;
@@ -6177,10 +6162,8 @@ html_response:
 						if(conn_info_main.remote_adr.s_addr==0x7F000001) strcpy(user,"console\0");
 						if(strstr(param, "/chat.ps3?"))
 						{
-							pos=strstr(param, "u=");
-							if(pos) get_value(user, pos+2, 20);
-							pos=strstr(param, "m=");
-							if(pos) get_value(msg, pos+2, 200);
+							pos=strstr(param, "u="); if(pos) get_value(user, pos+2, 20);
+							pos=strstr(param, "m="); if(pos) get_value(msg , pos+2, 200);
 
 							sprintf(templn, "<font color=\"red%s\"><b>%s</b></font><br>%s<br><!---->", user, user, msg);
 
@@ -7228,7 +7211,7 @@ just_leave:
 
 									// make target dir tree
 									for(u16 p=12; p<strlen(target); p++)
-										if(target[p]=='/') {target[p]=0; cellFsMkdir((char*)target, 0777); target[p]='/';}
+										if(target[p]=='/') {target[p]=0; cellFsMkdir((char*)target, MODE); target[p]='/';}
 
 									// copy folder to target
 									if(strstr(param+plen,"/exdata"))
@@ -7517,7 +7500,7 @@ just_leave:
 														open_remote_file_2(ns, (char*)"/CLOSEFILE", &bytes_read);
 														cellFsClose(fdw);
 													}
-													cellFsChmod(templn, 0666);
+													cellFsChmod(templn, MODE);
 												}
 
 												get_title_and_id_from_sfo(templn, tempID, data[v3_entry].name, icon, tempstr);
@@ -8080,7 +8063,7 @@ static void handleclient_ftp(u64 conn_s_ftp_p)
 							ssend(conn_s_ftp, FTP_OK_250);
 							int attributes = val(cmd);
 							if(attributes == 0)
-								cellFsChmod(filename, 777);
+								cellFsChmod(filename, MODE);
 							else
 								cellFsChmod(filename, attributes);
 						}
@@ -8388,7 +8371,7 @@ pasv_again:
 
 						absPath(filename, param, cwd);
 
-						if(cellFsMkdir((char*)filename, 0777) == 0)
+						if(cellFsMkdir((char*)filename, MODE) == 0)
 						{
 							sprintf(buffer, "257 \"%s\" OK\r\n", param);
 							ssend(conn_s_ftp, buffer);
@@ -8470,7 +8453,7 @@ pasv_again:
 									sys_memory_free(sysmem);
 								}
 								cellFsClose(fd);
-								cellFsChmod(filename, 0666);
+								cellFsChmod(filename, MODE);
 								if(!working || rr!=0) cellFsUnlink(filename);
 							}
 
@@ -9003,37 +8986,37 @@ static void poll_thread(uint64_t poll)
 		}
 
 /*
-FAIL SAFE    : SELECT+L3+L2+R2
-RESET SAFE   : SELECT+R3+L2+R2
+ FAIL SAFE    : SELECT+L3+L2+R2
+ RESET SAFE   : SELECT+R3+L2+R2
 
-REFRESH XML  : SELECT+L3 (+R2=profile1, +L2=profile2)
-UNLOAD WM    : L3+R2+R3
+ REFRESH XML  : SELECT+L3 (+R2=profile1, +L2=profile2)
+ UNLOAD WM    : L3+R2+R3
 
-PREV GAME    : SELECT+L1
-NEXT GAME    : SELECT+R1
-SHUTDOWN     : L3+R2+X
-RESTART      : L3+R2+O
+ PREV GAME    : SELECT+L1
+ NEXT GAME    : SELECT+R1
+ SHUTDOWN     : L3+R2+X
+ RESTART      : L3+R2+O
 
-FAN CNTRL    : L3+R2+START
-SHOW TEMP    : SELECT+R3 / SELECT+START
-DYNAMIC TEMP : SELECT+LEFT/RIGHT
-MANUAL TEMP  : SELECT+UP/DOWN
+ FAN CNTRL    : L3+R2+START
+ SHOW TEMP    : SELECT+R3 / SELECT+START
+ DYNAMIC TEMP : SELECT+LEFT/RIGHT
+ MANUAL TEMP  : SELECT+UP/DOWN
 
-SYSCALLS     : R2+/\
-SHOW IDPS    : R2+O
-OFFLINE MODE : R2+口
+ SYSCALLS     : R2+/\
+ SHOW IDPS    : R2+O
+ OFFLINE MODE : R2+口
 
-EXT GAME DATA: SELECT+口
-MOUNT net0/  : SELECT+R2+口
-MOUNT net1/  : SELECT+L2+口
+ EXT GAME DATA: SELECT+口
+ MOUNT net0/  : SELECT+R2+口
+ MOUNT net1/  : SELECT+L2+口
 
-TOGGLE PS2CLASSIC    : SELECT+L2+/\
-SWITCH PS2EMU        : SELECT+L2+R2
+ TOGGLE PS2CLASSIC    : SELECT+L2+/\
+ SWITCH PS2EMU        : SELECT+L2+R2
 
-COBRA TOGGLE         : L3+L2+/\
-REBUG  Mode Switcher : L3+L2+口
-Normal Mode Switcher : L3+L2+O
-DEBUG  Menu Switcher : L3+L2+X
+ COBRA TOGGLE         : L3+L2+/\
+ REBUG  Mode Switcher : L3+L2+口
+ Normal Mode Switcher : L3+L2+O
+ DEBUG  Menu Switcher : L3+L2+X
 */
 		struct CellFsStat s;
 		bool reboot = false;
@@ -10702,8 +10685,6 @@ static void wwwd_thread(uint64_t arg)
 //	u32 mode=0;
 //	if(in_cobra(&mode)==0) cobra_mode=1;
 
-	if(isDir("/dev_flash/shity")) {sys_ppu_thread_exit(0); return;} // do not accept this
-
 	backup[0]=0;
 
 	detect_firmware();
@@ -11561,7 +11542,7 @@ static bool mount_with_mm(const char *_path0, u8 do_eject)
 			{
 				cellFsWrite(fd, (void *)&lastgames, sizeof(_lastgames), NULL);
 				cellFsClose(fd);
-				cellFsChmod((char*)WMTMP "/last_games.bin", 0666);
+				cellFsChmod((char*)WMTMP "/last_games.bin", MODE);
 			}
 		}
 	}
@@ -11578,7 +11559,7 @@ static bool mount_with_mm(const char *_path0, u8 do_eject)
 			u64 written = 0;
 			cellFsWrite(fd, (void *)_path, strlen(_path), &written);
 			cellFsClose(fd);
-			cellFsChmod(path2, 0666);
+			cellFsChmod(path2, MODE);
 		}
 	}
 
@@ -11799,17 +11780,17 @@ static bool mount_with_mm(const char *_path0, u8 do_eject)
 					netiso_args *mynet_iso	= (netiso_args*)addr;
 					memset(mynet_iso, 0, _64KB_);
 
-					if( (strstr(_path, "/net0") && webman_config->netd0 && webman_config->neth0[0] && webman_config->netp0>0) ||
-						(strstr(_path, "/net1") && webman_config->netd1 && webman_config->neth1[0] && webman_config->netp1>0) ||
-						(strstr(_path, "/net2") && webman_config->netd2 && webman_config->neth2[0] && webman_config->netp2>0) )
+					if( (_path[4]=='0' && webman_config->netd0 && webman_config->neth0[0] && webman_config->netp0>0) ||
+						(_path[4]=='1' && webman_config->netd1 && webman_config->neth1[0] && webman_config->netp1>0) ||
+						(_path[4]=='2' && webman_config->netd2 && webman_config->neth2[0] && webman_config->netp2>0) )
 					{
-						if(strstr(_path, "/net1"))
+						if(_path[4]=='1')
 						{
 							sprintf(mynet_iso->server, "%s", webman_config->neth1);
 							mynet_iso->port=webman_config->netp1;
 						}
 						else
-						if(strstr(_path, "/net2"))
+						if(_path[4]=='2')
 						{
 							sprintf(mynet_iso->server, "%s", webman_config->neth2);
 							mynet_iso->port=webman_config->netp2;
@@ -12080,11 +12061,11 @@ static bool mount_with_mm(const char *_path0, u8 do_eject)
 #endif
 
 			// -- get TitleID from PARAM.SFO
-			char filename[MAX_PATH_LEN], paramsfo[_4KB_], titleID[16];
+			char filename[MAX_PATH_LEN], paramsfo[_4KB_], titleID[10];
 			unsigned char *mem = (u8*)paramsfo;
 			int fs; uint64_t msiz = 0;
 
-			memset(titleID, 0, 16);
+			memset(titleID, 0, 10);
 
 			sprintf(filename, "%s/PS3_GAME/PARAM.SFO", _path);
 			if(cellFsOpen(filename, CELL_FS_O_RDONLY, &fs, 0, 0)==CELL_FS_SUCCEEDED)
@@ -12359,11 +12340,11 @@ patch:
 	}
 
 	// -- get TitleID from PARAM.SFO
-	char filename[MAX_PATH_LEN], paramsfo[_4KB_], titleID[16];
+	char filename[MAX_PATH_LEN], paramsfo[_4KB_], titleID[10];
 	unsigned char *mem = (u8*)paramsfo;
 	int fs; uint64_t msiz = 0;
 
-	memset(titleID, 0, 16);
+	memset(titleID, 0, 10);
 
 	sprintf(filename, "%s/PS3_GAME/PARAM.SFO", _path);
 	if(cellFsOpen(filename, CELL_FS_O_RDONLY, &fs, 0, 0)==CELL_FS_SUCCEEDED)
@@ -12515,7 +12496,7 @@ patch:
 						{
 							cellFsWrite(fdw, (void *)&libfs_new, 0x8e07, &msiz);
 							cellFsClose(fdw);
-							cellFsChmod(expplg, 0666);
+							cellFsChmod(expplg, MODE);
 						}
 					}
 				}
@@ -12529,7 +12510,7 @@ patch:
 			{
 				cellFsWrite(fdw, (void *)&libfs_new, 0x8e92, &msiz);
 				cellFsClose(fdw); save_libfs_new = false;
-				cellFsChmod(expplg, 0666);
+				cellFsChmod(expplg, MODE);
 			}
 		}
 	}
