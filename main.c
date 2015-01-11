@@ -32,15 +32,15 @@
 #include <time.h>
 #include <unistd.h>
 
-//#define ENGLISH_ONLY	1	// uncomment for english only version
+#define ENGLISH_ONLY	1	// uncomment for english only version
 
 //#define CCAPI			1	// uncomment for ccapi release
 #define COBRA_ONLY	1	// comment out for ccapi/non-cobra release
 //#define REX_ONLY		1	// shortcuts for REBUG REX CFWs / comment out for usual CFW
 
 //#define PS3MAPI		1
-//#define LITE_EDITION	1	// no ps3netsrv support, smaller memory footprint
-#define WEB_CHAT		1
+#define LITE_EDITION	1	// no ps3netsrv support, smaller memory footprint
+//#define WEB_CHAT		1
 #define FIX_GAME		1
 //#define EXTRA_FEAT	1
 //#define NOSINGSTAR	1
@@ -184,7 +184,7 @@ SYS_MODULE_STOP(wwwd_stop);
 
 #define LINELEN			512 // file listing
 #define MAX_LINE_LEN	512 // html games
-#define MAX_PATH_LEN	512
+#define MAX_PATH_LEN	512 // do not change!
 
 #define FAILED		-1
 
@@ -356,7 +356,6 @@ typedef struct
 	uint8_t last;
 	char game[MAX_LAST_GAMES][MAX_PATH_LEN];
 } __attribute__((packed)) _lastgames;
-static _lastgames lastgames;
 
 #ifdef USE_DEBUG
 static int debug_s=-1;
@@ -7015,7 +7014,7 @@ just_leave:
 
 							if(!(plen==IS_COPY && !copy_in_progress))
 							{
-								for(u16 n=0; n<strlen(param); n++)
+								for(u16 n=0; n<strlen(param)-9; n++)
 									if(memcmp(param + n, "/PS3_GAME", 9)==0) {param[n]=0; break;}
 
 								if(!forced_mount && game_name())
@@ -8924,10 +8923,7 @@ static void poll_thread(uint64_t poll)
 			t1=t1>>24;
 			t2=t2>>24;
 
-			//if( webman_config->fanm==1) t1=t2;
-			//else if(webman_config->fanm==2) {t1+=t2; t1/=2;}
-			//else if(webman_config->fanm==3)
-			{if(t2>t1) t1=t2;}
+			if(t2>t1) t1=t2;
 
 			if(!lasttemp) lasttemp=t1;
 
@@ -8961,16 +8957,16 @@ static void poll_thread(uint64_t poll)
 					if(smoothstep>1)
 					{
 						fan_speed--;
-						if(t1<=(max_temp-5)) fan_speed--;
-						if(t1<=(max_temp-8)) fan_speed--;
+						if(t1<=(max_temp-5)) {fan_speed--; if(fan_speed>0xC0) fan_speed--;} // 75%
+						if(t1<=(max_temp-8)) {fan_speed--; if(fan_speed>0x99) fan_speed--;} // 60%
 						smoothstep=0;
 					}
 				}
 				//if(delta==0 && t1>=(max_temp-1)) fan_speed++;
 				if(delta> 0)
 				{
-					smoothstep++;
-					if(smoothstep)
+					//smoothstep++;
+					//if(smoothstep)
 					{
 						fan_speed--;
 						smoothstep=0;
@@ -9059,11 +9055,11 @@ DEBUG  Menu Switcher : L3+L2+X
 #ifndef LITE_EDITION
 							if(!(webman_config->combo2 & MOUNTNET0) &&
 								(data.button[CELL_PAD_BTN_OFFSET_DIGITAL2] & CELL_PAD_CTRL_R2))
-							{if(webman_config->netp0 && webman_config->neth0[0]) mount_with_mm((char*)"/net0/.", 1);}
+							{if(webman_config->netp0 && webman_config->neth0[0]) mount_with_mm((char*)"/net0", 1);}
 							else
 							if(!(webman_config->combo2 & MOUNTNET1) &&
 								(data.button[CELL_PAD_BTN_OFFSET_DIGITAL2] & CELL_PAD_CTRL_L2))
-							{if(webman_config->netp1 && webman_config->neth1[0]) mount_with_mm((char*)"/net1/.", 1);}
+							{if(webman_config->netp1 && webman_config->neth1[0]) mount_with_mm((char*)"/net1", 1);}
 							else
 #endif
 								set_gamedata_status(extgd^1, true);
@@ -9725,14 +9721,13 @@ reboot:
 				if(!webman_config->warn)
 				{
 					sprintf((char*)tmp, "%s\r\n CPU: %i°C   RSX: %i°C", STR_OVERHEAT, t1, t2);
-				show_msg((char*)tmp);
-				sys_timer_sleep(2);
+					show_msg((char*)tmp);
+					sys_timer_sleep(2);
 				}
 				if(t1>85 || t2>85)
 				{
 					if(!max_temp) max_temp=82;
-					if(fan_speed<0xB0)
-					fan_speed=0xB0;
+					if(fan_speed<0xB0) fan_speed=0xB0;
 					else
 						if(fan_speed<MAX_FANSPEED) fan_speed+=8;
 
@@ -11485,17 +11480,16 @@ static bool mount_with_mm(const char *_path0, u8 do_eject)
 
 	char _path[MAX_PATH_LEN];
 
-#ifndef LITE_EDITION
-	if(!strcmp(_path0, "/net0")) strcpy((char*)_path0, "/net0/."); else
-	if(!strcmp(_path0, "/net1")) strcpy((char*)_path0, "/net1/."); else
-	if(!strcmp(_path0, "/net2")) strcpy((char*)_path0, "/net2/.");
-#endif
-
 	strcpy(_path, _path0);
 
-	//if(_path[0] && strstr(_path, "/PS3_GAME/USRDIR/EBOOT.BIN")) _path[strlen(_path)-26]=0;
-	//for(u16 n=0; n<strlen(_path); n++)
-	//	if(memcmp(_path + n, "/PS3_GAME", 9)==0) {_path[n]=0; break;}
+	for(u16 n=0; n<strlen(_path)-9; n++)
+		if(memcmp(_path + n, "/PS3_GAME", 9)==0) {_path[n]=0; break;}
+
+#ifndef LITE_EDITION
+	if(!strcmp(_path, "/net0")) strcpy((char*)_path, "/net0/."); else
+	if(!strcmp(_path, " ")) strcpy((char*)_path, "/net1/."); else
+	if(!strcmp(_path, "/net2")) strcpy((char*)_path, "/net2/.");
+#endif
 
 	if(!strcmp(_path, "/dev_bdvd")) {do_umount(false); goto exit_mount;}
 
@@ -11504,6 +11498,7 @@ static bool mount_with_mm(const char *_path0, u8 do_eject)
 #endif
 
 	// save lastgame.bin / process _next & _prev commands
+	bool _prev=false, _next=false;
 	if(do_eject)
 	{
 		//cobra_lib_init();
@@ -11511,23 +11506,25 @@ static bool mount_with_mm(const char *_path0, u8 do_eject)
 		//if(!strstr(_path0, "/PSPISO/") && !strstr(_path0, "/ISO/"))
 		{
 			int fd=0;
-			memset(&lastgames, 0, sizeof(_lastgames));
-			lastgames.last=250;
+			_lastgames lastgames; memset(&lastgames, 0, sizeof(_lastgames)); lastgames.last=250;
+
 			if(cellFsOpen((char*)WMTMP "/last_games.bin", CELL_FS_O_RDONLY, &fd, NULL, 0) == CELL_FS_SUCCEEDED)
 			{
 				cellFsRead(fd, (void *)&lastgames, sizeof(_lastgames), NULL);
 				cellFsClose(fd);
 			}
 
-			if(strstr(_path0, "_prev") || strstr(_path0, "_next"))
+			_next=(bool)(strstr(_path0, "_next")!=NULL);
+			_prev=(bool)(strstr(_path0, "_prev")!=NULL);
+
+			if(_next || _prev)
 			{
 				if(lastgames.last>(MAX_LAST_GAMES-1)) goto exit_mount;
-				if(strstr(_path0, "_prev"))
+				if(_prev)
 				{
 					if(lastgames.last==0) lastgames.last=(MAX_LAST_GAMES-1); else lastgames.last--;
 				}
-
-				if(strstr(_path0, "_next"))
+				if(_next)
 				{
 					if(lastgames.last==(MAX_LAST_GAMES-1)) lastgames.last=0; else lastgames.last++;
 				}
@@ -11560,8 +11557,7 @@ static bool mount_with_mm(const char *_path0, u8 do_eject)
 
 			if(cellFsOpen((char*)WMTMP "/last_games.bin", CELL_FS_O_CREAT | CELL_FS_O_TRUNC | CELL_FS_O_WRONLY, &fd, NULL, 0) == CELL_FS_SUCCEEDED)
 			{
-				u64 written = 0;
-				cellFsWrite(fd, (void *)&lastgames, sizeof(_lastgames), &written);
+				cellFsWrite(fd, (void *)&lastgames, sizeof(_lastgames), NULL);
 				cellFsClose(fd);
 				cellFsChmod((char*)WMTMP "/last_games.bin", 0666);
 			}
@@ -11706,11 +11702,11 @@ static bool mount_with_mm(const char *_path0, u8 do_eject)
 		cobra_send_fake_disc_eject_event();
 		sys_timer_usleep(4000);
 
-		if( strstr(_path, "/PS3ISO/") || strstr(_path, "/BDISO/") || strstr(_path, "/DVDISO/") || strstr(_path, "/PS2ISO/") ||
-			strstr(_path, "/PSXISO/") || strstr(_path, "/PSXGAMES/") ||strstr(_path, "/PSPISO/") || strstr(_path, "/ISO/") ||
-			strstr(_path, "/net0") || strstr(_path, "/net1") || strstr(_path, "/net2") || strstr(_path, ".ntfs[") )
+		if( strstr(_path, "/PS3ISO/")   || strstr(_path, "/BDISO/")    || strstr(_path, "/DVDISO/")    || strstr(_path, "/PS2ISO/") ||
+			strstr(_path, "/PSXISO/")   || strstr(_path, "/PSXGAMES/") || strstr(_path, "/PSPISO/")    || strstr(_path, "/ISO/")    ||
+			!strncmp(_path,"/net0/", 6) || !strncmp(_path,"/net1/", 6) || !strncmp(_path, "/net2/", 6) || strstr(_path, ".ntfs[") )
 		{
-			if(strstr(_path0, "_prev") || strstr(_path0, "_next"))
+			if(_next || _prev)
 				sys_timer_sleep(1);
 			else
 				sys_timer_usleep(50000);
