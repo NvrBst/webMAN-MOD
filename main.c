@@ -109,7 +109,7 @@ SYS_MODULE_STOP(wwwd_stop);
 
 #define MY_GAMES_XML			"/dev_hdd0/xmlhost/game_plugin/mygames.xml"
 
-#define WM_VERSION			"1.41.05 MOD"						// webMAN version
+#define WM_VERSION			"1.41.06 MOD"						// webMAN version
 #define MM_ROOT_STD			"/dev_hdd0/game/BLES80608/USRDIR"	// multiMAN root folder
 #define MM_ROOT_SSTL		"/dev_hdd0/game/NPEA00374/USRDIR"	// multiman SingStar® Stealth root folder
 #define MM_ROOT_STL			"/dev_hdd0/tmp/game_repo/main"		// stealthMAN root folder
@@ -1935,6 +1935,7 @@ static void netiso_thread(uint64_t arg)
 	{
 		numtracks = 0;
 		tracks = NULL;
+		is_cd2352 = 0;
 	}
 
 	ret = sys_storage_ext_mount_discfile_proxy(result_port, command_queue, emu_mode, discsize, _256KB_, numtracks, tracks);
@@ -2362,6 +2363,7 @@ static void rawseciso_thread(uint64_t arg)
 	{
 		num_tracks = 0;
 		tracks = NULL;
+		is_cd2352 = 0;
 	}
 
 	if (is_cd2352)
@@ -11487,7 +11489,7 @@ static bool mount_with_mm(const char *_path0, u8 do_eject)
 
 #ifndef LITE_EDITION
 	if(!strcmp(_path, "/net0")) strcpy((char*)_path, "/net0/."); else
-	if(!strcmp(_path, " ")) strcpy((char*)_path, "/net1/."); else
+	if(!strcmp(_path, "/net1")) strcpy((char*)_path, "/net1/."); else
 	if(!strcmp(_path, "/net2")) strcpy((char*)_path, "/net2/.");
 #endif
 
@@ -11702,9 +11704,9 @@ static bool mount_with_mm(const char *_path0, u8 do_eject)
 		cobra_send_fake_disc_eject_event();
 		sys_timer_usleep(4000);
 
-		if( strstr(_path, "/PS3ISO/")   || strstr(_path, "/BDISO/")    || strstr(_path, "/DVDISO/")    || strstr(_path, "/PS2ISO/") ||
-			strstr(_path, "/PSXISO/")   || strstr(_path, "/PSXGAMES/") || strstr(_path, "/PSPISO/")    || strstr(_path, "/ISO/")    ||
-			!strncmp(_path,"/net0/", 6) || !strncmp(_path,"/net1/", 6) || !strncmp(_path, "/net2/", 6) || strstr(_path, ".ntfs[") )
+		if( strstr(_path, "/PS3ISO/") || strstr(_path, "/BDISO/")    || strstr(_path, "/DVDISO/") || strstr(_path, "/PS2ISO/") ||
+			strstr(_path, "/PSXISO/") || strstr(_path, "/PSXGAMES/") || strstr(_path, "/PSPISO/") || strstr(_path, "/ISO/")    ||
+			strstr(_path,"/net0/")    || strstr(_path,"/net1/")      || strstr(_path, "/net2/")   || strstr(_path, ".ntfs[") )
 		{
 			if(_next || _prev)
 				sys_timer_sleep(1);
@@ -12570,7 +12572,11 @@ patch:
 #endif
 
 exit_mount:
-	if(ret && extcmp(_path, ".BIN.ENC", 8) && !isDir("/dev_bdvd")) ret = false;
+	if(ret && extcmp(_path, ".BIN.ENC", 8))
+	{
+		if(!isDir("/dev_bdvd")) sys_timer_sleep(2);
+		if(!isDir("/dev_bdvd")) ret = false;
+	}
 
 	is_mounting=false;
 	max_mapped=0;
