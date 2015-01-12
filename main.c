@@ -34,8 +34,8 @@
 
 //#define ENGLISH_ONLY	1	// uncomment for english only version
 
-#define CCAPI			1	// uncomment for ccapi release
-//#define COBRA_ONLY	1	// comment out for ccapi/non-cobra release
+//#define CCAPI			1	// uncomment for ccapi release
+#define COBRA_ONLY	1	// comment out for ccapi/non-cobra release
 //#define REX_ONLY		1	// shortcuts for REBUG REX CFWs / comment out for usual CFW
 
 //#define PS3MAPI		1
@@ -1036,14 +1036,11 @@ void saveBMP()
 
 #ifdef VIDEO_REC
 /*
-void log(const char *fmt, ...)
+void log(const char *fmt, char *text)
 {
 	char buffer[4096];
 
-    va_list args;
-	va_start(args, fmt);
-	sprintf(buffer, fmt, args);
-	va_end(args);
+	sprintf(buffer, fmt, text);
 
 	console_write(buffer);
 	int fd;
@@ -7025,16 +7022,9 @@ just_leave:
 
 									// get iso name
 									strcpy(fname, strrchr(param+plen, '/')+1);
+									strcpy(fpath, param+plen); fpath[strlen(fpath)-strlen(fname)-1]=0;
 
-									// get title ID from name and get icon
-									get_cover_from_name(tempstr, fname, tempID);
-
-									// get default icon
-									if(!tempstr[0])
-									{
-										strcpy(fpath, param+plen); fpath[strlen(fpath)-strlen(fname)-1]=0;
-										get_default_icon(tempstr, fpath, fname, 0, 0, 0);
-									}
+									get_default_icon(tempstr, fpath, fname, 0, -1, 0);
 								}
 
 								strenc(enc_dir_name, tempstr);
@@ -7189,7 +7179,7 @@ just_leave:
 								else if(!extcmp(param, ".BIN.ENC", 8))
 									sprintf(templn, "%s: %s<hr/><img src=\"%s\"><hr/>%s", STR_GAMETOM, param+plen, enc_dir_name, mounted?STR_PS2LOADED:STR_ERROR);
 								else if(strstr(param, "/PSPISO") || strstr(param, "/ISO/"))
-									sprintf(templn, "%s: %s<hr/><img src=\"%s\"><hr/>%s", STR_GAMETOM, param+plen, enc_dir_name, mounted?STR_PSPLOADED:STR_ERROR);
+									sprintf(templn, "%s: %s<hr/><img src=\"%s\" height=%i><hr/>%s", STR_GAMETOM, param+plen, enc_dir_name, strcasestr(enc_dir_name,".png")?200:300, mounted?STR_PSPLOADED:STR_ERROR);
 								else if(strstr(param, "/BDISO") || strstr(param, "/DVDISO") || !extcmp(param, ".ntfs[BDISO]", 12) || !extcmp(param, ".ntfs[DVDISO]", 13))
 									sprintf(templn, "%s: %s<hr/><img src=\"%s\"><hr/>%s", STR_MOVIETOM,param+plen, enc_dir_name, mounted?STR_MOVIELOADED:STR_ERROR);
 								else
