@@ -4335,22 +4335,15 @@ static void handleclient(u64 conn_s_p)
 {
 	int conn_s = (int)conn_s_p; // main communications socket
 
-	u8 is_binary = 0;
-	u64 c_len = 0;
-
 	sys_addr_t sysmem=0;
 
 	//char buffer[BUFFER_SIZE];
 	//char myxml[BUFFER_SIZE];
 
-	char cmd[16], param[HTML_RECV_SIZE];
-	char header[HTML_RECV_SIZE];
+	char param[HTML_RECV_SIZE];
 	struct CellFsStat buf;
 	int fd;
-	u8 served=0;	// served http requests
-	int fdxml=0;
 
-	CellRtcDateTime rDate;
 	CellRtcTick pTick;
 
 	if(conn_s_p==START_DAEMON || conn_s_p==REFRESH_CONTENT)
@@ -4379,9 +4372,9 @@ static void handleclient(u64 conn_s_p)
 #ifndef ENGLISH_ONLY
 													covers_exist[0]=isDir(COVERS_PATH);
 #endif
-		sprintf(param, "%s/covers", MM_ROOT_STD) ; covers_exist[1]=isDir(param);
-		sprintf(param, "%s/covers", MM_ROOT_STL) ; covers_exist[2]=isDir(param);
-		sprintf(param, "%s/covers", MM_ROOT_SSTL); covers_exist[3]=isDir(param);
+		sprintf(param, "%s/covers", MM_ROOT_STD) ;	covers_exist[1]=isDir(param);
+		sprintf(param, "%s/covers", MM_ROOT_STL) ;	covers_exist[2]=isDir(param);
+		sprintf(param, "%s/covers", MM_ROOT_SSTL);	covers_exist[3]=isDir(param);
 													covers_exist[4]=isDir("/dev_hdd0/GAMES/covers");
 													covers_exist[5]=isDir("/dev_hdd0/GAMEZ/covers");
 
@@ -4419,14 +4412,13 @@ static void handleclient(u64 conn_s_p)
 				cobra_config->spoof_revision=0;
 			}
 			else
-			{
-    			if(!(c_firmware==4.53f || c_firmware==4.66f))
+			{   // cobra spoofer not working on 4.53 & 4.65
+    			if((c_firmware!=4.53f && c_firmware<4.65f))
 				{
 					cobra_config->spoof_version=0x0466;
 					cobra_config->spoof_revision=64645;
 				}
 			}
-
 
 			if( cobra_config->ps2softemu == 0 && cobra_get_ps2_emu_type()==PS2_EMU_SW )
 				cobra_config->ps2softemu =  1;
@@ -4544,6 +4536,8 @@ static void handleclient(u64 conn_s_p)
 		}
 #endif
 
+// --- begin update xml ---
+	{
 		char xml[128]; sprintf(xml, MY_GAMES_XML);
 
 		if(conn_s_p==START_DAEMON && ((webman_config->refr==1) || from_reboot))
@@ -4559,8 +4553,6 @@ static void handleclient(u64 conn_s_p)
 			}
 		}
 
-// --- begin update xml ---
-	{
 		set_buffer_sizes();
 
 		_meminfo meminfo;
@@ -4715,15 +4707,15 @@ static void handleclient(u64 conn_s_p)
 #endif
 				if(is_net && (ns<0)) break;
 
-				if(!webman_config->usb0 && f0==1) continue;
-				if(!webman_config->usb1 && f0==2) continue;
-				if(!webman_config->usb2 && f0==3) continue;
-				if(!webman_config->usb3 && f0==4) continue;
-				if(!webman_config->usb6 && f0==5) continue;
-				if(!webman_config->usb7 && f0==6) continue;
+				if(!webman_config->usb0 && (f0==1)) continue;
+				if(!webman_config->usb1 && (f0==2)) continue;
+				if(!webman_config->usb2 && (f0==3)) continue;
+				if(!webman_config->usb3 && (f0==4)) continue;
+				if(!webman_config->usb6 && (f0==5)) continue;
+				if(!webman_config->usb7 && (f0==6)) continue;
 
-				if( f0==NTFS && !webman_config->usb0 && !webman_config->usb1 && !webman_config->usb2 &&
-								!webman_config->usb3 && !webman_config->usb6 && !webman_config->usb7) continue;
+				if( f0==NTFS && (!webman_config->usb0 && !webman_config->usb1 && !webman_config->usb2 &&
+								 !webman_config->usb3 && !webman_config->usb6 && !webman_config->usb7)) continue;
 
 //
 				u8 d0, subfolder; bool has_dirs;
@@ -4751,19 +4743,19 @@ read_folder_xml:
 
 				if(conn_s_p==START_DAEMON && f1==0)
 				{
-					if(webman_config->bootd && f0==1)
+					if(webman_config->bootd && (f0==1))
 					{
 						waitfor((char*)"/dev_usb", webman_config->bootd); // wait for any usb
 					}
 
 					if(webman_config->boots && (f0>=1 && f0<=6)) // usb000->007
 					{
-						if( (webman_config->usb0 && f0==1) ||
-							(webman_config->usb1 && f0==2) ||
-							(webman_config->usb2 && f0==3) ||
-							(webman_config->usb3 && f0==4) ||
-							(webman_config->usb6 && f0==5) ||
-							(webman_config->usb7 && f0==6) )
+						if( (webman_config->usb0 && (f0==1)) ||
+							(webman_config->usb1 && (f0==2)) ||
+							(webman_config->usb2 && (f0==3)) ||
+							(webman_config->usb3 && (f0==4)) ||
+							(webman_config->usb6 && (f0==5)) ||
+							(webman_config->usb7 && (f0==6)) )
 						{
 							waitfor((char*)drives[f0], webman_config->boots);
 						}
@@ -4786,7 +4778,7 @@ read_folder_xml:
 					uint64_t msiz = 0;
 					u8 is_iso=0;
 					char icon[MAX_PATH_LEN], enc_dir_name[1024];
-					char tempID[10];
+					char tempID[12];
 #ifdef COBRA_ONLY
 #ifndef LITE_EDITION
 					sys_addr_t data2=0;
@@ -4898,13 +4890,13 @@ read_folder_xml:
 							if( !(webman_config->nogrp))
 							{
 								/*if(strstr(param, "/PSPISO") && strlen(myxml_psp)<(BUFFER_SIZE_PSP-1024))
-								{strcat(myxml_psp, tempstr); skey[key][0]='4';}
+								{strcat(myxml_psp, tempstr); skey[key][0]=PSP; item_count[4]++;}
 								else*/
 								if(strstr(param, "/PSX") && strlen(myxml_psx)<(BUFFER_SIZE_PSX-1024))
-								{strcat(myxml_psx, tempstr); skey[key][0]='1'; item_count[1]++;}
+								{strcat(myxml_psx, tempstr); skey[key][0]=PS1; item_count[1]++;}
 								else
 								if((strstr(param, "/BDISO") || strstr(param, "/DVDISO")) && strlen(myxml_dvd)<(BUFFER_SIZE_DVD-1024))
-								{strcat(myxml_dvd, tempstr); skey[key][0]='0'; item_count[0]++;}
+								{strcat(myxml_dvd, tempstr); skey[key][0]=BLU; item_count[0]++;}
 								else
 								if(strlen(myxml_ps3)<(BUFFER_SIZE-5000))
                                 {strcat(myxml_ps3, tempstr); item_count[3]++;}
@@ -5070,17 +5062,17 @@ read_folder_xml:
 								if( !(webman_config->nogrp) )
 								{
 									if(strstr(tmp_param, "/PS2ISO") && strlen(myxml_ps2)<(BUFFER_SIZE_PS2-1024))
-									{strcat(myxml_ps2, tempstr); skey[key][0]='2'; item_count[2]++;}
+									{strcat(myxml_ps2, tempstr); skey[key][0]=PS2; item_count[2]++;}
 #ifdef COBRA_ONLY
 									else
 									if((strstr(tmp_param, "/PSPISO") || strstr(tmp_param, "/ISO")) && strlen(myxml_psp)<(BUFFER_SIZE_PSP-1024))
-									{strcat(myxml_psp, tempstr); skey[key][0]='4'; item_count[4]++;}
+									{strcat(myxml_psp, tempstr); skey[key][0]=PSP; item_count[4]++;}
 									else
 									if((strstr(tmp_param, "/PSX") || !extcmp(entry.d_name, ".ntfs[PSXISO]", 13)) && strlen(myxml_psx)<(BUFFER_SIZE_PSX-1024))
-									{strcat(myxml_psx, tempstr); skey[key][0]='1'; item_count[1]++;}
+									{strcat(myxml_psx, tempstr); skey[key][0]=PS1; item_count[1]++;}
 									else
 									if((strstr(tmp_param, "/BDISO") || strstr(tmp_param, "/DVDISO") || !extcmp(entry.d_name, ".ntfs[DVDISO]", 13) || !extcmp(entry.d_name, ".ntfs[BDISO]", 12)) && strlen(myxml_dvd)<(BUFFER_SIZE_DVD-1024))
-									{strcat(myxml_dvd, tempstr); skey[key][0]='0'; item_count[0]++;}
+									{strcat(myxml_dvd, tempstr); skey[key][0]=BLU; item_count[0]++;}
 #endif
 									else
 									if(strlen(myxml_ps3)<(BUFFER_SIZE-5000))
@@ -5204,17 +5196,17 @@ continue_reading_folder_xml:
 			if( !(webman_config->nogrp))
 			{
 #ifdef COBRA_ONLY
-				if(skey[(a)][0]=='4' && strlen(myxml_psp)<(BUFFER_SIZE_PSP-128))
+				if(skey[(a)][0]==PSP && strlen(myxml_psp)<(BUFFER_SIZE_PSP-128))
 					strcat(myxml_psp, tempstr);
 				else
-				if(skey[(a)][0]=='1' && strlen(myxml_psx)<(BUFFER_SIZE_PSX-128))
+				if(skey[(a)][0]==PS1 && strlen(myxml_psx)<(BUFFER_SIZE_PSX-128))
 					strcat(myxml_psx, tempstr);
 				else
-				if(skey[(a)][0]=='0' && strlen(myxml_dvd)<(BUFFER_SIZE_DVD-128))
+				if(skey[(a)][0]==BLU && strlen(myxml_dvd)<(BUFFER_SIZE_DVD-128))
 					strcat(myxml_dvd, tempstr);
 				else
 #endif
-				if(skey[(a)][0]=='2' && strlen(myxml_ps2)<(BUFFER_SIZE_PS2-128))
+				if(skey[(a)][0]==PS2 && strlen(myxml_ps2)<(BUFFER_SIZE_PS2-128))
 					strcat(myxml_ps2, tempstr);
 				else
 				if(strlen(myxml_ps3)<(BUFFER_SIZE-5000))
@@ -5338,7 +5330,7 @@ continue_reading_folder_xml:
 		}
 
 		// --- save xml file
-
+		int fdxml=0;
 		cellFsOpen(xml, CELL_FS_O_CREAT | CELL_FS_O_TRUNC | CELL_FS_O_WRONLY, &fdxml, NULL, 0);
 		cellFsWrite(fdxml, (char*)myxml, strlen(myxml), NULL);
 		if( (webman_config->nogrp))
@@ -5366,14 +5358,13 @@ continue_reading_folder_xml:
 		cellFsWrite(fdxml, (char*)myxml, strlen(myxml), NULL);
 		cellFsClose(fdxml);
 		cellFsChmod(xml, MODE);
-		u32 xmlsize=BUFFER_SIZE;
-
 
 		// --- replace & with ^ for droidMAN
 
 		if(cellFsOpen(xml, CELL_FS_O_RDONLY, &fdxml, NULL, 0) == CELL_FS_SUCCEEDED)
 		{
 			u64 read_e = 0;
+			u32 xmlsize=BUFFER_SIZE;
 			cellFsRead(fdxml, (void *)myxml_ps3, xmlsize, &read_e);
 			cellFsClose(fdxml);
 			for(u32 n=0;n<xmlsize;n++) if(myxml_ps3[n]=='&') myxml_ps3[n]='^';
@@ -5439,6 +5430,11 @@ again3:
 		loading_html--;
 		sys_ppu_thread_exit(0);
 	}
+
+	u8 is_binary = 0, served=0;	// served http requests
+	u64 c_len = 0;
+	CellRtcDateTime rDate;
+	char cmd[16], header[HTML_RECV_SIZE];
 
 	u8 is_ps3_http=0;
 	u8 is_cpursx=0;
@@ -5540,12 +5536,6 @@ restart:
 				{system_call_3(SC_SYS_POWER, SYS_REBOOT, NULL, 0);}
 				sys_ppu_thread_exit(0);
 				break;
-			}
-
-			if(is_busy && strstr(param, "?"))
-			{
-				int timeout=20;
-				while(is_busy && timeout>0) {sys_timer_usleep(500); timeout--;}
 			}
 
 			if(!is_busy && (strstr(param, "index.ps3?")  ||
@@ -5782,7 +5772,7 @@ html_response:
 #endif
 
 					if(strstr(param, "nsp=1")) webman_config->nospoof=1; //don't spoof fw version
-                    if(c_firmware==4.53f || c_firmware==4.66f) webman_config->nospoof=1;
+                    if(c_firmware==4.53f || c_firmware>=4.65f) webman_config->nospoof=1;
 
 					if(strstr(param, "fc=1")) webman_config->fanc=1;
 
@@ -6734,7 +6724,7 @@ just_leave:
 #endif
 
 #ifdef COBRA_ONLY
-						if(!(c_firmware==4.53f || c_firmware==4.66f))
+						if((c_firmware!=4.53f && c_firmware<4.65f))
 							add_check_box("nsp", "1", STR_NOSPOOF, NULL, (webman_config->nospoof), buffer);
 #endif
 #ifdef NOSINGSTAR
@@ -7258,6 +7248,8 @@ just_leave:
 
 						while(loading_games && working) sys_timer_usleep(20000);
 
+						u32 buf_len=strlen(buffer);
+/*
 						CellRtcTick pTick, pTick2;
 						cellRtcGetCurrentTick(&pTick);
 						int upd_time=0;
@@ -7269,29 +7261,27 @@ just_leave:
 						cellRtcSetTime_t(&rDate, upd_time);
 						cellRtcGetTick(&rDate, &pTick2);
 
-						//sprintf(templn, "[%ull %ull %i ]<br>", pTick2, pTick, (pTick.tick-pTick2.tick)/1000000);
-						//strcat(buffer, templn);
-						u32 buf_len=strlen(buffer);
+						sprintf(templn, "[%ull %ull %i ]<br>", pTick2, pTick, (pTick.tick-pTick2.tick)/1000000);
+						strcat(buffer, templn);
 
 						if(strstr(param, "/index.ps3?") || ((pTick.tick-pTick2.tick)/1000000)>43200) cellFsUnlink((char*)WMTMP "/games.html");
+*/
+						if(strstr(param, "/index.ps3?")) cellFsUnlink((char*)WMTMP "/games.html");
 
+						loading_games=1;
 						if(cellFsStat((char*)WMTMP "/games.html", &buf)==CELL_FS_SUCCEEDED)
 						{
-							upd_time=1;
 							int fdu;
 							if(cellFsOpen((char*)WMTMP "/games.html", CELL_FS_O_RDONLY, &fdu, 0, 0)==CELL_FS_SUCCEEDED)
 							{
 								cellFsRead(fdu, (char*)(buffer+buf_len), buf.st_size, NULL);
 								cellFsClose(fdu);
+								loading_games=0;
 							}
 						}
-						else
-                            upd_time=0;
 
-						if(upd_time==0)
+						if(loading_games)
 						{
-							loading_games=1;
-
 							int abort_connection=0;
 							u8 is_net=0;
 
@@ -7376,15 +7366,15 @@ just_leave:
 #endif
 									if(is_net && (ns<0)) break;
 
-									if(!webman_config->usb0 && f0==1) continue;
-									if(!webman_config->usb1 && f0==2) continue;
-									if(!webman_config->usb2 && f0==3) continue;
-									if(!webman_config->usb3 && f0==4) continue;
-									if(!webman_config->usb6 && f0==5) continue;
-									if(!webman_config->usb7 && f0==6) continue;
+									if(!webman_config->usb0 && (f0==1)) continue;
+									if(!webman_config->usb1 && (f0==2)) continue;
+									if(!webman_config->usb2 && (f0==3)) continue;
+									if(!webman_config->usb3 && (f0==4)) continue;
+									if(!webman_config->usb6 && (f0==5)) continue;
+									if(!webman_config->usb7 && (f0==6)) continue;
 
-									if( f0==NTFS && !webman_config->usb0 && !webman_config->usb1 && !webman_config->usb2 &&
-													!webman_config->usb3 && !webman_config->usb6 && !webman_config->usb7) continue;
+									if( f0==NTFS && (!webman_config->usb0 && !webman_config->usb1 && !webman_config->usb2 &&
+													 !webman_config->usb3 && !webman_config->usb6 && !webman_config->usb7)) continue;
 //
 									u8 d1, subfolder; bool has_dirs;
 									d1 = subfolder = 0; has_dirs = false; uprofile = profile;
@@ -7417,7 +7407,7 @@ just_leave:
 									u64 read_e;
 									u8 is_iso=0;
 									char icon[MAX_PATH_LEN], enc_dir_name[1024];
-									char tempID[16];
+									char tempID[12];
 									sys_addr_t data2=0;
 									int v3_entries=0;
 									int v3_entry=0;
@@ -7768,13 +7758,11 @@ static void handleclient_ftp(u64 conn_s_ftp_p)
 	int dataactive = 0;			// prevent the data connection from being closed at the end of the loop
 	u8 loggedin = 0;			// whether the user is logged in or not
 
-	char rnfr[MAX_PATH_LEN];				// stores the path/to/file for the RNFR command
-
 	char cwd[MAX_PATH_LEN], tempcwd[MAX_PATH_LEN];	// Current Working Directory
 	int rest = 0;									// for resuming file transfers
 
 	char buffer[FTP_RECV_SIZE];
-	char cmd[16], param[MAX_PATH_LEN], filename[MAX_PATH_LEN], source[MAX_PATH_LEN];
+	char cmd[16], param[MAX_PATH_LEN], filename[MAX_PATH_LEN], source[MAX_PATH_LEN]; // used as source parameter in RNFR and COPY commands
 	struct CellFsStat buf;
 	int fd;
 
@@ -7975,6 +7963,9 @@ static void handleclient_ftp(u64 conn_s_ftp_p)
 											  " SITE FLASH\r\n"
 											  " SITE EXTGD <ON/OFF>\r\n"
 											  " SITE MAPTO <path>\r\n"
+#ifdef FIX_GAME
+											  " SITE FIX <path>\r\n"
+#endif
 											  " SITE UMOUNT\r\n"
 											  " SITE COPY <file>\r\n"
 											  " SITE PASTE <file>\r\n"
@@ -8043,20 +8034,42 @@ static void handleclient_ftp(u64 conn_s_ftp_p)
 						if(strcasecmp(cmd, "MAPTO") == 0)
 						{
 							ssend(conn_s_ftp, FTP_OK_250);
-							if(strlen(param))
+							if(filename[0]=='/')
 							{
-								sys_map_path((char*)param, (char*)cwd);
+								sys_map_path((char*)filename, (char*)cwd);
 							}
 							else
 							{
-								sys_map_path((char*)"/dev_bdvd", cwd);
+								mount_with_mm(cwd, 1);
 							}
 						}
+#ifdef FIX_GAME
+						else
+						if(strcasecmp(cmd, "FIX") == 0)
+						{
+							if(fix_in_progress)
+								ssend(conn_s_ftp, FTP_ERROR_451);
+							else
+							{
+								ssend(conn_s_ftp, FTP_OK_250);
+								absPath(param, filename, cwd);
+
+								fix_in_progress=true; fix_aborted = false;
+
+								if(strcasestr(filename, ".iso"))
+									fix_iso(param, 0x100000UL);
+								else
+									fix_game(param);
+
+								fix_in_progress=false;
+							}
+						}
+#endif
 #endif
 						else
 						if(strcasecmp(cmd, "CHMOD") == 0)
 						{
-							strcpy(param, filename);
+							absPath(param, filename, cwd);
 							split = ssplit(param, cmd, 5, filename, MAX_PATH_LEN-1);
 
 							ssend(conn_s_ftp, FTP_OK_250);
@@ -8072,25 +8085,27 @@ static void handleclient_ftp(u64 conn_s_ftp_p)
 							sprintf(buffer, "%s %s", STR_COPYING, filename);
 							show_msg((char*)buffer);
 
-							strcpy(source, filename);
+							absPath(source, filename, cwd);
 							ssend(conn_s_ftp, FTP_OK_200);
 						}
 						else
 						if(strcasecmp(cmd, "PASTE") == 0)
 						{
 							struct CellFsStat s;
-							if((!copy_in_progress) && (strlen(source) > 0) && (strcmp(source, filename) != 0) && cellFsStat(source, &s)==CELL_FS_SUCCEEDED)
+
+							absPath(param, filename, cwd);
+							if((!copy_in_progress) && (strlen(source) > 0) && (strcmp(source, param) != 0) && cellFsStat(source, &s)==CELL_FS_SUCCEEDED)
 							{
 								copy_in_progress=true;
 								ssend(conn_s_ftp, FTP_OK_250);
 
-								sprintf(buffer, "%s %s\n%s %s", STR_COPYING, source, STR_CPYDEST, filename);
+								sprintf(buffer, "%s %s\n%s %s", STR_COPYING, source, STR_CPYDEST, param);
 								show_msg((char*)buffer);
 
 								if(isDir(source))
-									folder_copy(source, filename);
+									folder_copy(source, param);
 								else
-									filecopy(source, filename, COPY_WHOLE_FILE);
+									filecopy(source, param, COPY_WHOLE_FILE);
 
 								show_msg((char*)STR_CPYFINISH);
 								//memset(source, 0, 512);
@@ -8536,21 +8551,21 @@ pasv_again:
 				{
 					if(split == 1)
 					{
-						absPath(rnfr, param, cwd);
+						absPath(source, param, cwd);
 
-						if(cellFsStat(rnfr, &buf)==CELL_FS_SUCCEEDED)
+						if(cellFsStat(source, &buf)==CELL_FS_SUCCEEDED)
 						{
 							ssend(conn_s_ftp, "350 RNFR OK\r\n"); // Requested file action pending further information
 						}
 						else
 						{
-							rnfr[0]=0;
+							source[0]=0;
 							ssend(conn_s_ftp, "550 RNFR Error\r\n");  // Requested action not taken. File unavailable
 						}
 					}
 					else
 					{
-						rnfr[0]=0;
+						source[0]=0;
 						ssend(conn_s_ftp, FTP_ERROR_501);
 					}
 				}
@@ -8558,11 +8573,11 @@ pasv_again:
 				else
 				if(strcasecmp(cmd, "RNTO") == 0)
 				{
-					if(split == 1 && rnfr[0]=='/')
+					if(split == 1 && source[0]=='/')
 					{
 						absPath(filename, param, cwd);
 
-						if(cellFsRename(rnfr, filename) == CELL_FS_SUCCEEDED)
+						if(cellFsRename(source, filename) == CELL_FS_SUCCEEDED)
 						{
 							ssend(conn_s_ftp, FTP_OK_250);
 						}
@@ -8575,7 +8590,7 @@ pasv_again:
 					{
 						ssend(conn_s_ftp, FTP_ERROR_501);
 					}
-					rnfr[0]=0;
+					source[0]=0;
 				}
 
 				else
