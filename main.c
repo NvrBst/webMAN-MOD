@@ -190,7 +190,7 @@ SYS_MODULE_STOP(wwwd_stop);
 
 #define FAILED		-1
 
-#define FTP_RECV_SIZE  2048
+#define FTP_RECV_SIZE  1024
 #define HTML_RECV_SIZE 2048
 
 static u32 BUFFER_SIZE_FTP	= ( _128KB_);
@@ -4343,11 +4343,6 @@ static void handleclient(u64 conn_s_p)
 	//char buffer[BUFFER_SIZE];
 	//char myxml[BUFFER_SIZE];
 
-	char templn[1024];
-	char tempstr[_4KB_];
-
-	char enc_dir_name[1024];
-
 	char cmd[16], param[HTML_RECV_SIZE];
 	char header[HTML_RECV_SIZE];
 	struct CellFsStat buf;
@@ -4370,8 +4365,8 @@ static void handleclient(u64 conn_s_p)
 			if(profile || (!(webman_config->wmdn) && strlen(STR_WMSTART)>0))
 			{
 				sys_timer_sleep(10);
-				sprintf(templn, "%s%s", STR_WMSTART, SUFIX2(profile));
-				show_msg((char*)templn);
+				sprintf(param, "%s%s", STR_WMSTART, SUFIX2(profile));
+				show_msg((char*)param);
 			}
 		}
 		else //if(conn_s_p==REFRESH_CONTENT)
@@ -4384,9 +4379,9 @@ static void handleclient(u64 conn_s_p)
 #ifndef ENGLISH_ONLY
 													covers_exist[0]=isDir(COVERS_PATH);
 #endif
-		sprintf(templn, "%s/covers", MM_ROOT_STD) ; covers_exist[1]=isDir(templn);
-		sprintf(templn, "%s/covers", MM_ROOT_STL) ; covers_exist[2]=isDir(templn);
-		sprintf(templn, "%s/covers", MM_ROOT_SSTL); covers_exist[3]=isDir(templn);
+		sprintf(param, "%s/covers", MM_ROOT_STD) ; covers_exist[1]=isDir(param);
+		sprintf(param, "%s/covers", MM_ROOT_STL) ; covers_exist[2]=isDir(param);
+		sprintf(param, "%s/covers", MM_ROOT_SSTL); covers_exist[3]=isDir(param);
 													covers_exist[4]=isDir("/dev_hdd0/GAMES/covers");
 													covers_exist[5]=isDir("/dev_hdd0/GAMEZ/covers");
 
@@ -4394,8 +4389,8 @@ static void handleclient(u64 conn_s_p)
 		{
 			if(cellFsStat(wm_icons[i], &buf)!=CELL_FS_SUCCEEDED)
 			{
-				sprintf(templn, "/dev_flash/vsh/resource/explore/icon/%s", wm_icons[i] + 23); strcpy(wm_icons[i], templn);
-				if(cellFsStat(templn, &buf)==CELL_FS_SUCCEEDED) continue;
+				sprintf(param, "/dev_flash/vsh/resource/explore/icon/%s", wm_icons[i] + 23); strcpy(wm_icons[i], param);
+				if(cellFsStat(param, &buf)==CELL_FS_SUCCEEDED) continue;
 				else
 				if(i==0 || i==5) strcpy(wm_icons[i] + 32, "user/024.png\0"); else //ps3
 				if(i==1 || i==6) strcpy(wm_icons[i] + 32, "user/026.png\0"); else //psx
@@ -4636,6 +4631,7 @@ static void handleclient(u64 conn_s_p)
 		}
 
 		// --- build group headers ---
+		char tempstr[_4KB_], templn[1024];
 
 		u16 item_count[5];
 		myxml[0]=0; for(u8 i=0;i<5;i++) item_count[i]=0;
@@ -4789,7 +4785,7 @@ read_folder_xml:
 					int fdw, fs;
 					uint64_t msiz = 0;
 					u8 is_iso=0;
-					char icon[MAX_PATH_LEN];
+					char icon[MAX_PATH_LEN], enc_dir_name[1024];
 					char tempID[10];
 #ifdef COBRA_ONLY
 #ifndef LITE_EDITION
@@ -5605,7 +5601,7 @@ restart:
 
 html_response:
 			prepare_header(header, param, is_binary);
-
+			char tempstr[_4KB_], templn[1024];
 			{u16 ulen=strlen(param); if(ulen>1 && param[ulen-1]=='/') param[ulen-1]=0;}
 			//sprintf(templn, "X-PS3-Info: %llu [%s]\r\n", (unsigned long long)c_len, param); strcat(header, templn);
 
@@ -6128,6 +6124,7 @@ html_response:
 						if(cellFsStat((char*)WMCHATFILE, &buf)!=CELL_FS_SUCCEEDED || buf.st_size>0x8000UL || buf.st_size==0)
 						{
 							memset(tempstr, 0, _4KB_);
+
 							if(buf.st_size>0x8000UL)
 							{
 								if(cellFsOpen((char*)WMCHATFILE, CELL_FS_O_RDONLY, &fd, 0,0)==CELL_FS_SUCCEEDED)
@@ -6271,6 +6268,8 @@ html_response:
 										strcpy(templn, param); if(templn[strlen(templn)-1]=='/') templn[strlen(templn)-1]=0;
 										if(strrchr(templn, '/')) templn[strrchr(templn, '/')-templn]=0; if(strlen(templn)<6 && strlen(param)<8) {templn[0]='/'; templn[1]=0;}
 										sprintf(tempstr, "!00000<tr><td><a class=\"f\" href=\"%s\">..</a></td><td> <a href=\"%s\">&lt;dir&gt;</a> &nbsp; </td><td>11-Nov-2006 11:11</td></tr>", templn, templn);
+
+										if(strlen(tempstr)>MAX_LINE_LEN) continue; //ignore lines too long
 										strncpy(line_entry[idx].path, tempstr, LINELEN); idx++; dirs++;
 										tlen+=strlen(tempstr);
 
@@ -6321,6 +6320,7 @@ html_response:
 
 											add_list_entry(tempstr, is_dir, ename, templn, data[n].name, fsize, rDate, flen, sz, sf);
 
+											if(strlen(tempstr)>MAX_LINE_LEN) continue; //ignore lines too long
 											strncpy(line_entry[idx].path, tempstr, LINELEN); idx++;
 											tlen+=strlen(tempstr);
 
@@ -6427,6 +6427,7 @@ html_response:
 
 									add_list_entry(tempstr, is_dir, ename, templn, entry.d_name, fsize, rDate, flen, sz, sf);
 
+									if(strlen(tempstr)>MAX_LINE_LEN) continue; //ignore lines too long
 									strncpy(line_entry[idx].path, tempstr, LINELEN); idx++;
 									tlen+=flen;
 
@@ -6990,7 +6991,7 @@ just_leave:
 							int plen=10;
 							if(strstr(param, "copy.ps3")) plen=IS_COPY;
 
-							char target[MAX_PATH_LEN];
+							char target[MAX_PATH_LEN], enc_dir_name[1024];;
 							bool mounted=false; max_mapped=0;
 							is_binary=1;
 
@@ -7415,7 +7416,7 @@ just_leave:
 									CellFsDirent entry;
 									u64 read_e;
 									u8 is_iso=0;
-									char icon[MAX_PATH_LEN];
+									char icon[MAX_PATH_LEN], enc_dir_name[1024];
 									char tempID[16];
 									sys_addr_t data2=0;
 									int v3_entries=0;
@@ -7514,7 +7515,7 @@ just_leave:
 												(f0-7), param, data[v3_entry].name, (int)pTick.tick, icon, templn);
 
 											v3_entry++;
-
+											if(strlen(tempstr)>MAX_LINE_LEN) continue; //ignore lines too long
 											strncpy(line_entry[idx].path, tempstr, MAX_LINE_LEN); idx++;
 											tlen+=strlen(tempstr);
 											if(tlen>(BUFFER_SIZE-1024)) break;
@@ -7649,21 +7650,29 @@ just_leave:
 												get_default_icon(icon, param, entry.d_name, 0, ns, abort_connection);
 
 												strenc(enc_dir_name, entry.d_name);
+												templn[64]=0; flen=strlen(templn);
 
 												snprintf(ename, 6, "%s    ", templn);
-												if(subfolder)
+												do
 												{
-													sprintf(tempstr, "%c%c%c%c<div class=\"gc\"><div class=\"ic\"><a href=\"/mount.ps3%s/%s/%s%s%s\"><img src=\"%s\" class=\"gi\"></a></div><div class=\"gn\"><a href=\"%s\">%s</a></div></div>",
-														ename[0], ename[1], ename[2], ename[3],
-														param, enc_dir_name, enc_dir_name, (subfolder & 2)?".ISO":".iso", (subfolder & 1)?"":".0", icon, param, templn);
+													if(subfolder)
+													{
+														sprintf(tempstr, "%c%c%c%c<div class=\"gc\"><div class=\"ic\"><a href=\"/mount.ps3%s/%s/%s%s%s\"><img src=\"%s\" class=\"gi\"></a></div><div class=\"gn\"><a href=\"%s\">%s</a></div></div>",
+															ename[0], ename[1], ename[2], ename[3],
+															param, enc_dir_name, enc_dir_name, (subfolder & 2)?".ISO":".iso", (subfolder & 1)?"":".0", icon, param, templn);
+													}
+													else
+													{
+														sprintf(tempstr, "%c%c%c%c<div class=\"gc\"><div class=\"ic\"><a href=\"/mount.ps3%s/%s\"><img src=\"%s\" class=\"gi\"></a></div><div class=\"gn\"><a href=\"%s/%s\">%s</a></div></div>",
+															ename[0], ename[1], ename[2], ename[3],
+															param, enc_dir_name, icon, param, enc_dir_name, templn);
+													}
+													flen-=4; if(flen<32) break;
+													templn[flen]=0;
 												}
-												else
-												{
-													sprintf(tempstr, "%c%c%c%c<div class=\"gc\"><div class=\"ic\"><a href=\"/mount.ps3%s/%s\"><img src=\"%s\" class=\"gi\"></a></div><div class=\"gn\"><a href=\"%s/%s\">%s</a></div></div>",
-														ename[0], ename[1], ename[2], ename[3],
-														param, enc_dir_name, icon, param, enc_dir_name, templn);
-												}
+												while (strlen(templn)>MAX_LINE_LEN);
 
+												if(flen<32 && strlen(tempstr)>MAX_LINE_LEN) continue; //ignore lines too long
 												strncpy(line_entry[idx].path, tempstr, MAX_LINE_LEN); idx++;
 												tlen+=strlen(tempstr);
 												if(tlen>(BUFFER_SIZE-1024)) break;
@@ -7764,8 +7773,8 @@ static void handleclient_ftp(u64 conn_s_ftp_p)
 	char cwd[MAX_PATH_LEN], tempcwd[MAX_PATH_LEN];	// Current Working Directory
 	int rest = 0;									// for resuming file transfers
 
-	char buffer[2048];
-	char cmd[16], param[384], filename[384], source[384];
+	char buffer[FTP_RECV_SIZE];
+	char cmd[16], param[MAX_PATH_LEN], filename[MAX_PATH_LEN], source[MAX_PATH_LEN];
 	struct CellFsStat buf;
 	int fd;
 
@@ -7812,12 +7821,12 @@ static void handleclient_ftp(u64 conn_s_ftp_p)
 	while(connactive == 1 && working)
 	{
 
-		if(recv(conn_s_ftp, buffer, 2047, 0) > 0)
+		if(recv(conn_s_ftp, buffer, FTP_RECV_SIZE, 0) > 0)
 		{
 			buffer[strcspn(buffer, "\n")] = '\0';
 			buffer[strcspn(buffer, "\r")] = '\0';
 
-			int split = ssplit(buffer, cmd, 15, param, 383);
+			int split = ssplit(buffer, cmd, 15, param, MAX_PATH_LEN-1);
 
 			if(loggedin == 1)
 			{
@@ -7957,7 +7966,7 @@ static void handleclient_ftp(u64 conn_s_ftp_p)
 				{
 					if(split == 1)
 					{
-						split = ssplit(param, cmd, 10, filename, 383);
+						split = ssplit(param, cmd, 10, filename, MAX_PATH_LEN-1);
 
 						if(strcasecmp(cmd, "HELP") == 0)
 						{
@@ -8048,7 +8057,7 @@ static void handleclient_ftp(u64 conn_s_ftp_p)
 						if(strcasecmp(cmd, "CHMOD") == 0)
 						{
 							strcpy(param, filename);
-							split = ssplit(param, cmd, 5, filename, 383);
+							split = ssplit(param, cmd, 5, filename, MAX_PATH_LEN-1);
 
 							ssend(conn_s_ftp, FTP_OK_250);
 							int attributes = val(cmd);
@@ -8875,7 +8884,8 @@ static void poll_thread(uint64_t poll)
 	u8 smoothstep=0;
 	int delta=0;
 	uint32_t usb_handle = -1;
-	uint8_t tmp[2048];
+	uint8_t msg[200];
+
 	uint32_t r;
 
 	CellPadData data;
@@ -9021,7 +9031,6 @@ static void poll_thread(uint64_t poll)
 						if (cellPadGetData(2, &data) != CELL_PAD_OK) {sys_timer_usleep(300000); continue;}
 				if (data.len > 0)
 				{
-
 					if ((data.button[CELL_PAD_BTN_OFFSET_DIGITAL1] & CELL_PAD_CTRL_SELECT))
 					{
 						if( !(webman_config->combo2 & (EXTGAMDAT | MOUNTNET0 | MOUNTNET1))         // Toggle External Game Data
@@ -9073,7 +9082,6 @@ static void poll_thread(uint64_t poll)
 							&& (data.button[CELL_PAD_BTN_OFFSET_DIGITAL2] & CELL_PAD_CTRL_TRIANGLE) // SELECT+L2+TRIANGLE
 							&& is_rebug && (c_firmware==4.65f || c_firmware==4.66f) )
 						{
-							char msg[100];
 							if(cellFsStat((char*)PS2_CLASSIC_TOGGLER, &s)==CELL_FS_SUCCEEDED)
 							{
 								disable_classic_ps2_mode();
@@ -9214,7 +9222,6 @@ static void poll_thread(uint64_t poll)
 
 							webman_config->profile=profile; save_settings();
 
-							char msg[200];
 							sprintf(msg, "%s XML%s: %s", STR_REFRESH, SUFIX2(profile), STR_SCAN2);
 							show_msg((char*)msg);
 							init_running=1;
@@ -9268,8 +9275,8 @@ static void poll_thread(uint64_t poll)
 								_meminfo meminfo;
 								{system_call_1(SC_GET_FREE_MEM, (uint64_t) &meminfo);}
 
-								sprintf((char*)tmp, "CPU: %i°C  RSX: %i°C  FAN: %i%%   \r\n%s: %i %s\r\n%s: %i %s", t1>>24, t2>>24, (int)(((int)speed*100)/255), STR_STORAGE, (int)((blockSize*freeSize)>>20), STR_MBFREE, STR_MEMORY, meminfo.avail>>10, STR_KBFREE);
-								show_msg(tmp);
+								sprintf((char*)msg, "CPU: %i°C  RSX: %i°C  FAN: %i%%   \r\n%s: %i %s\r\n%s: %i %s", t1>>24, t2>>24, (int)(((int)speed*100)/255), STR_STORAGE, (int)((blockSize*freeSize)>>20), STR_MBFREE, STR_MEMORY, meminfo.avail>>10, STR_KBFREE);
+								show_msg(msg);
 
 								sys_timer_sleep(2);
 							}
@@ -9282,7 +9289,7 @@ static void poll_thread(uint64_t poll)
 								if(data.button[CELL_PAD_BTN_OFFSET_DIGITAL2] & CELL_PAD_CTRL_R2) max_temp+=5; else max_temp+=1;
 								if(max_temp>85) max_temp=85;
 								webman_config->temp1=max_temp;
-								sprintf((char*)tmp, "%s\r\n%s %i°C", STR_FANCH0, STR_FANCH1, max_temp);
+								sprintf((char*)msg, "%s\r\n%s %i°C", STR_FANCH0, STR_FANCH1, max_temp);
 							}
 							else
 							{
@@ -9291,10 +9298,10 @@ static void poll_thread(uint64_t poll)
 								if(webman_config->temp0<0x33) webman_config->temp0=0x33;
 								if(webman_config->temp0>MAX_FANSPEED) webman_config->temp0=MAX_FANSPEED;
 								fan_control(webman_config->temp0, 0);
-								sprintf((char*)tmp, "%s\r\n%s %i%%", STR_FANCH0, STR_FANCH2, webman_config->manu);
+								sprintf((char*)msg, "%s\r\n%s %i%%", STR_FANCH0, STR_FANCH2, webman_config->manu);
 							}
 							save_settings();
-							show_msg((char*)tmp);
+							show_msg((char*)msg);
 							sys_timer_sleep(2);
 						}
 						else
@@ -9304,7 +9311,7 @@ static void poll_thread(uint64_t poll)
 							{
 								if(max_temp>30) {if(data.button[CELL_PAD_BTN_OFFSET_DIGITAL2] & CELL_PAD_CTRL_R2) max_temp-=5; else max_temp-=1;}
 								webman_config->temp1=max_temp;
-								sprintf((char*)tmp, "%s\r\n%s %i°C", STR_FANCH0, STR_FANCH1, max_temp);
+								sprintf((char*)msg, "%s\r\n%s %i°C", STR_FANCH0, STR_FANCH1, max_temp);
 							}
 							else
 							{
@@ -9313,30 +9320,30 @@ static void poll_thread(uint64_t poll)
 								if(webman_config->temp0<0x33) webman_config->temp0=0x33;
 								if(webman_config->temp0>MAX_FANSPEED) webman_config->temp0=MAX_FANSPEED;
 								fan_control(webman_config->temp0, 0);
-								sprintf((char*)tmp, "%s\r\n%s %i%%", STR_FANCH0, STR_FANCH2, webman_config->manu);
+								sprintf((char*)msg, "%s\r\n%s %i%%", STR_FANCH0, STR_FANCH2, webman_config->manu);
 							}
 							save_settings();
-							show_msg((char*)tmp);
+							show_msg((char*)msg);
 							sys_timer_sleep(2);
 						}
 						else
 						if(webman_config->minfan && !(webman_config->combo & MINDYNFAN) && (data.button[CELL_PAD_BTN_OFFSET_DIGITAL1] & CELL_PAD_CTRL_LEFT) ) // SELECT+LEFT decrease Minfan
 						{
 							if(webman_config->minfan-5>=MIN_FANSPEED) webman_config->minfan-=5;
-							sprintf((char*)tmp, "%s\r\n%s %i%%", STR_FANCH0, STR_FANCH3, webman_config->minfan);
+							sprintf((char*)msg, "%s\r\n%s %i%%", STR_FANCH0, STR_FANCH3, webman_config->minfan);
 
 							save_settings();
-							show_msg((char*)tmp);
+							show_msg((char*)msg);
 							sys_timer_sleep(2);
 						}
 						else
 						if(webman_config->minfan && !(webman_config->combo & MINDYNFAN) && (data.button[CELL_PAD_BTN_OFFSET_DIGITAL1] & CELL_PAD_CTRL_RIGHT) ) // SELECT+RIGHT increase Minfan
 						{
 							if(webman_config->minfan+5<100) webman_config->minfan+=5;
-							sprintf((char*)tmp, "%s\r\n%s %i%%", STR_FANCH0, STR_FANCH3, webman_config->minfan);
+							sprintf((char*)msg, "%s\r\n%s %i%%", STR_FANCH0, STR_FANCH3, webman_config->minfan);
 
 							save_settings();
-							show_msg((char*)tmp);
+							show_msg((char*)msg);
 							sys_timer_sleep(2);
 						}
 						else
@@ -9394,15 +9401,15 @@ static void poll_thread(uint64_t poll)
 							{
 								if(webman_config->temp0==0) max_temp=webman_config->temp1; else max_temp=0;
 								fan_control(webman_config->temp0, 0);
-								sprintf((char*)tmp, "%s %s", STR_FANCTRL3, STR_ENABLED);
+								sprintf((char*)msg, "%s %s", STR_FANCTRL3, STR_ENABLED);
 							}
 							else
 							{
 								restore_fan(0);
-								sprintf((char*)tmp, "%s %s", STR_FANCTRL3, STR_DISABLED);
+								sprintf((char*)msg, "%s %s", STR_FANCTRL3, STR_DISABLED);
 							}
 							save_settings();
-							show_msg((char*)tmp);
+							show_msg((char*)msg);
 							sys_timer_sleep(2);
 							break;
 						}
@@ -9490,10 +9497,13 @@ static void poll_thread(uint64_t poll)
 							get_idps_psid();
 
 							#define SEP "\n                  "
-							sprintf(tmp, "IDPS EID0 : %016llX" SEP
-										 "%016llX\nIDPS LV2  : %016llX" SEP
-										 "%016llX\r\nPSID LV2 : %016llX" SEP "%016llX", eid0_idps[0], eid0_idps[1], IDPS[0], IDPS[1], PSID[0], PSID[1]);
-							show_msg((char*)tmp);
+							sprintf(msg, "IDPS EID0 : %016llX" SEP
+													 "%016llX\n"
+										 "IDPS LV2  : %016llX" SEP
+													 "%016llX\r\n"
+										 "PSID LV2 : %016llX" SEP
+													"%016llX", eid0_idps[0], eid0_idps[1], IDPS[0], IDPS[1], PSID[0], PSID[1]);
+							show_msg((char*)msg);
 							sys_timer_sleep(2);
 						}
 					}
@@ -9695,8 +9705,8 @@ reboot:
 			{
 				if(!webman_config->warn)
 				{
-					sprintf((char*)tmp, "%s\r\n CPU: %i°C   RSX: %i°C", STR_OVERHEAT, t1, t2);
-					show_msg((char*)tmp);
+					sprintf((char*)msg, "%s\r\n CPU: %i°C   RSX: %i°C", STR_OVERHEAT, t1, t2);
+					show_msg((char*)msg);
 					sys_timer_sleep(2);
 				}
 				if(t1>85 || t2>85)
@@ -9716,6 +9726,7 @@ reboot:
 
 		if(poll==0 && sec>=120) // check USB drives each 120 seconds
 		{
+			uint8_t tmp[2048];
 			for(u8 f0=0; f0<8; f0++)
 			{
 				if(sys_storage_open(((f0<6)?USB_MASS_STORAGE_1(f0):USB_MASS_STORAGE_2(f0)), 0, &usb_handle, 0)==0)
@@ -10029,7 +10040,7 @@ static void handleclient_ps3mapi(u64 conn_s_ps3mapi_p)
 	int connactive = 1;							// whether the ps3mapi connection is active or not
 	int dataactive = 0;							// prevent the data connection from being closed at the end of the loop
 
-	char buffer[2048];
+	char buffer[PS3MAPI_RECV_SIZE];
 	char cmd[20], param1[384], param2[384];
 
 	int p1x = 0;
@@ -10073,7 +10084,7 @@ static void handleclient_ps3mapi(u64 conn_s_ps3mapi_p)
 	while (connactive == 1 && working)
 	{
 
-		if (recv(conn_s_ps3mapi, buffer, 2047, 0) > 0)
+		if (recv(conn_s_ps3mapi, buffer, PS3MAPI_RECV_SIZE, 0) > 0)
 		{
 			buffer[strcspn(buffer, "\n")] = '\0';
 			buffer[strcspn(buffer, "\r")] = '\0';
