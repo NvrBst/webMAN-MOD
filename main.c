@@ -109,7 +109,7 @@ SYS_MODULE_STOP(wwwd_stop);
 
 #define MY_GAMES_XML			"/dev_hdd0/xmlhost/game_plugin/mygames.xml"
 
-#define WM_VERSION			"1.41.06 MOD"						// webMAN version
+#define WM_VERSION			"1.41.07 MOD"						// webMAN version
 #define MM_ROOT_STD			"/dev_hdd0/game/BLES80608/USRDIR"	// multiMAN root folder
 #define MM_ROOT_SSTL		"/dev_hdd0/game/NPEA00374/USRDIR"	// multiman SingStar® Stealth root folder
 #define MM_ROOT_STL			"/dev_hdd0/tmp/game_repo/main"		// stealthMAN root folder
@@ -538,7 +538,7 @@ static char wm_icons[12][60]={"/dev_hdd0/tmp/wm_icons/icon_wm_album_ps3.png", //
                               "/dev_hdd0/tmp/wm_icons/icon_wm_eject.png"      //icon/icon_home.png  [11]
                              };
 
-static bool covers_exist[6];
+static bool covers_exist[7];
 static char local_ip[16] = "127.0.0.1";
 
 uint64_t convertH(char *val);
@@ -3812,6 +3812,12 @@ static bool get_cover(char *icon, char *titleid)
 		sprintf(icon, "/dev_hdd0/GAMEZ/covers/%s.PNG", titleid); if(cellFsStat(icon, &s)==CELL_FS_SUCCEEDED) return true;
 	}
 
+	if(covers_exist[6])
+	{
+		sprintf(icon, WMTMP "/%s.JPG", titleid); if(cellFsStat(icon, &s)==CELL_FS_SUCCEEDED) return true;
+		sprintf(icon, WMTMP "/%s.PNG", titleid); if(cellFsStat(icon, &s)==CELL_FS_SUCCEEDED) return true;
+	}
+
 	icon[0]=0;
     return false;
 }
@@ -4368,6 +4374,8 @@ static void handleclient(u64 conn_s_p)
 
 		init_running=1;
 
+		cellFsMkdir((char*)WMTMP, MODE);
+
 		//identify covers folders to be scanned
 #ifndef ENGLISH_ONLY
 													covers_exist[0]=isDir(COVERS_PATH);
@@ -4377,6 +4385,7 @@ static void handleclient(u64 conn_s_p)
 		sprintf(param, "%s/covers", MM_ROOT_SSTL);	covers_exist[3]=isDir(param);
 													covers_exist[4]=isDir("/dev_hdd0/GAMES/covers");
 													covers_exist[5]=isDir("/dev_hdd0/GAMEZ/covers");
+													covers_exist[6]=isDir(WMTMP);
 
 		for(u8 i=0; i<12; i++)
 		{
@@ -4597,7 +4606,6 @@ static void handleclient(u64 conn_s_p)
 		myxml		= (char*)sysmem+(BUFFER_SIZE)-4300;
 		myxml_items = (char*)sysmem3;
 
-		cellFsMkdir((char*)WMTMP, MODE);
 		cellFsMkdir((char*)"/dev_hdd0/xmlhost", MODE);
 		cellFsMkdir((char*)"/dev_hdd0/xmlhost/game_plugin", MODE);
 		u32 key=0;
@@ -7662,7 +7670,7 @@ just_leave:
 												}
 												while (strlen(templn)>MAX_LINE_LEN);
 
-												if(flen<32 && strlen(tempstr)>MAX_LINE_LEN) continue; //ignore lines too long
+												if(strlen(tempstr)>MAX_LINE_LEN) continue; //ignore lines too long
 												strncpy(line_entry[idx].path, tempstr, MAX_LINE_LEN); idx++;
 												tlen+=strlen(tempstr);
 												if(tlen>(BUFFER_SIZE-1024)) break;
