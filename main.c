@@ -38,13 +38,14 @@
 #define COBRA_ONLY	1	// comment out for ccapi/non-cobra release
 //#define REX_ONLY		1	// shortcuts for REBUG REX CFWs / comment out for usual CFW
 
-#define PS3MAPI		1
+//#define PS3MAPI		1
 //#define LITE_EDITION	1	// no ps3netsrv support, smaller memory footprint
 #define WEB_CHAT		1
 #define FIX_GAME		1
-//#define EXTRA_FEAT	1
+//#define PS2_DISC		1	// uncomment to support /mount.ps2 (mount ps2 game folder as /dev_ps2disc)
 //#define NOSINGSTAR	1
 //#define SWAP_KERNEL	1
+//#define EXTRA_FEAT	1	// save XMB to bmp, eject disc holding SELECT on mount,
 //#define VIDEO_REC		1	//not working
 //#define USE_DEBUG		1
 
@@ -955,6 +956,10 @@ char h2a(char hex);
 void strenc(char *dst, char *src);
 int val(const char *c);
 
+#ifdef PS2_DISC
+static void do_umount_ps2disc(bool mount);
+static bool mount_ps2disc(char *path);
+#endif
 static void do_umount(bool clean);
 static void do_umount_iso(void);
 static bool mount_with_mm(const char *_path, u8 do_eject);
@@ -5623,7 +5628,7 @@ restart:
 							strstr(param, "delete.ps3")  ||
 							strstr(param, "delete_ps3")  ||
 #endif
-#ifdef PS3MAPI	
+#ifdef PS3MAPI
 							strstr(param, "home.ps3mapi")     ||
 							strstr(param, "setmem.ps3mapi")   ||
 							strstr(param, "getmem.ps3mapi")   ||
@@ -5638,8 +5643,12 @@ restart:
 			else if(strstr(param, "cpursx.ps3")  ||
 					strstr(param, "index.ps3")   ||
 					strstr(param, "setup.ps3")   ||
-					strstr(param, "mount.ps3/")  ||
 					strstr(param, "mount_ps3/")  ||
+					strstr(param, "mount.ps3/")  ||
+#ifdef PS2_DISC
+					strstr(param, "mount.ps2/")  ||
+					strstr(param, "mount_ps2/")  ||
+#endif
 					strstr(param, "eject.ps3")   ||
 					strstr(param, "extgd.ps3")   ||
 					strstr(param, "insert.ps3"))
@@ -6387,7 +6396,11 @@ html_response:
 											is_dir=data[n].is_directory; flen=strlen(data[n].name);
 
 											if(is_dir)
+#ifdef PS2_DISC
+												{sprintf(fsize, "<a href=\"/mount%s%s\">&lt;dir&gt;</a>", strstr(data[n].name, "[PS2")?".ps2":".ps3", templn); dirs++;}
+#else
 												{sprintf(fsize, "<a href=\"/mount.ps3%s\">&lt;dir&gt;</a>", templn); dirs++;}
+#endif
 											else if((flen > 4 && data[n].name[flen-4]=='.' && strcasestr(ISO_EXTENSIONS, data[n].name+flen-4)) || strstr(data[n].name, ".ntfs[") || !extcmp(data[n].name, ".BIN.ENC", 8))
 											{
 												if( strcasestr(data[n].name, ".iso.") && extcasecmp(data[n].name, ".iso.0", 6) )
@@ -6485,7 +6498,11 @@ html_response:
 										if(entry.d_name[0]=='.')
 											sprintf(fsize, "<a href=\"%s\">&lt;dir&gt;</a>", templn);
 										else
+#ifdef PS2_DISC
+											sprintf(fsize, "<a href=\"/mount%s%s\">&lt;dir&gt;</a>", strstr(entry.d_name, "[PS2")?".ps2":".ps3", templn);
+#else
 											sprintf(fsize, "<a href=\"/mount.ps3%s\">&lt;dir&gt;</a>", templn);
+#endif
 										dirs++;
 									}
 #ifdef COBRA_ONLY
@@ -7055,9 +7072,9 @@ just_leave:
 
 						strcat(buffer, templn);
 					}
-#endif		
-		
-#ifdef PS3MAPI					
+#endif
+
+#ifdef PS3MAPI
 					else
 					if(strstr(param, "home.ps3mapi"))
 					{
@@ -7068,13 +7085,13 @@ just_leave:
 						sprintf(templn, "<b>%s</b>"
 										"<hr color=\"#0099FF\"/>"
 										"<table width=\"800\" border=\"0\" cellspacing=\"2\" cellpadding=\"0\"><tr>", "PS3 Commands");
-						strcat(buffer, templn);	
+						strcat(buffer, templn);
 						//RingBuzzer
 						sprintf(templn, "<form id=\"buzzer\" action=\"/buzzer.ps3mapi\" method=\"get\" enctype=\"application/x-www-form-urlencoded\" target=\"_self\">"
 										"<td width=\"260\" style=\"text-align: left; float: left;\"><u>%s:</u><br><br>%s: <select name=\"mode\">", "Buzzer", "Mode");
-						strcat(buffer, templn);		
-						add_option_item("1" , "Simple", true, buffer);				
-						add_option_item("2" , "Double", false, buffer);				
+						strcat(buffer, templn);
+						add_option_item("1" , "Simple", true, buffer);
+						add_option_item("2" , "Double", false, buffer);
 						add_option_item("3" , "Triple", false, buffer);
 						sprintf(templn, "</select>   <input type=\"submit\" value=\" %s \"/></td></form>", "Ring");
 						strcat(buffer, templn);
@@ -7082,29 +7099,29 @@ just_leave:
 						sprintf(templn, "<form id=\"led\" action=\"/led.ps3mapi\" method=\"get\" enctype=\"application/x-www-form-urlencoded\" target=\"_self\">"
 						                "<td valign=\"top\" style=\"text-align: left; float: left;\"><u>%s:</u><br><br>"
 						                "%s: <select name=\"color\">", "Led", "Color");
-						strcat(buffer, templn);				
-						add_option_item("0" , "Red", true, buffer);				
-						add_option_item("1" , "Green", false, buffer);				
+						strcat(buffer, templn);
+						add_option_item("0" , "Red", true, buffer);
+						add_option_item("1" , "Green", false, buffer);
 						add_option_item("2" , "Yellow", false, buffer);
 						sprintf(templn, "</select>   %s: <select name=\"mode\">", "Mode");
-						strcat(buffer, templn);				
-						add_option_item("0" , "Off", true, buffer);				
-						add_option_item("1" , "On", false, buffer);				
-						add_option_item("2" , "Blink slow", false, buffer);				
+						strcat(buffer, templn);
+						add_option_item("0" , "Off", true, buffer);
+						add_option_item("1" , "On", false, buffer);
+						add_option_item("2" , "Blink slow", false, buffer);
 						add_option_item("3" , "Blink fast", false, buffer);
 						sprintf(templn, "</select>   <input type=\"submit\" value=\" %s \"/></td></tr></form>", "Set");
 						strcat(buffer, templn);
 						//Notify
 						sprintf(templn, "<form id=\"notify\" action=\"/notify.ps3mapi\" method=\"get\" enctype=\"application/x-www-form-urlencoded\" target=\"_self\">"
-						                "<tr><td style=\"text-align: left; float: left;\"><br><u>%s:</u><br><br>"											
+						                "<tr><td style=\"text-align: left; float: left;\"><br><u>%s:</u><br><br>"
 						                "<textarea name=\"msg\" cols=\"111\" rows=\"2\" maxlength=\"199\">Hello :)</textarea></td></tr>"
 						                "<tr><td style=\"text-align: right; float: right;\"><br><input type=\"submit\" value=\" %s \"/></td></tr></form>", "Notify", "Send");
 						strcat(buffer, templn);
 						//Syscall
 						sprintf(templn, "<form id=\"syscall\" action=\"/syscall.ps3mapi\" method=\"get\" enctype=\"application/x-www-form-urlencoded\" target=\"_self\">"
-						                "<tr><td style=\"text-align: left; float: left;\"><u>%s:</u><br><br></td></tr>"		
+						                "<tr><td style=\"text-align: left; float: left;\"><u>%s:</u><br><br></td></tr>"
 						                "<tr><td width=\"260\" style=\"text-align: left; float: left;\">", "CFW syscall");
-						strcat(buffer, templn);	
+						strcat(buffer, templn);
 						bool state = false;
 						int ret_val = -1;
 						{ system_call_3(8, SYSCALL8_OPCODE_PS3MAPI, PS3MAPI_OPCODE_CHECK_SYSCALL, 6); ret_val = (int)p1;}
@@ -7141,9 +7158,9 @@ just_leave:
 						strcat(buffer, templn);
 						//Syscall8
 						sprintf(templn, "<form id=\"syscall8\" action=\"/syscall8.ps3mapi\" method=\"get\" enctype=\"application/x-www-form-urlencoded\" target=\"_self\">"
-						                "<tr><td style=\"text-align: left; float: left;\"><u>%s:</u><br><br></td></tr>"		
+						                "<tr><td style=\"text-align: left; float: left;\"><u>%s:</u><br><br></td></tr>"
 						                "<tr><td style=\"text-align: left; float: left;\">", "CFW syscall 8");
-						strcat(buffer, templn);	
+						strcat(buffer, templn);
 						ret_val = -1;
 						{ system_call_2(8, SYSCALL8_OPCODE_PS3MAPI, PS3MAPI_OPCODE_PCHECK_SYSCALL8); ret_val = (int)p1;}
 						add_radio_button("mode", "0", "sc8_0", "Fully enabled", NULL, (ret_val == 0), buffer);
@@ -7157,7 +7174,7 @@ just_leave:
 						//Process Commands-----------------------------
 						//---------------------------------------------
 						sprintf(templn, "<b>%s</b><hr color=\"#0099FF\"/><br>", "Processes Commands");
-						strcat(buffer, templn);	
+						strcat(buffer, templn);
 						char pid_str[32];
 						u32 pid_list[16];
 						{system_call_3(8, SYSCALL8_OPCODE_PS3MAPI, PS3MAPI_OPCODE_GET_ALL_PROC_PID, (u64)pid_list); }
@@ -7165,7 +7182,7 @@ just_leave:
 						sprintf(templn, "<form action=\"/getmem.ps3mapi\" method=\"get\" enctype=\"application/x-www-form-urlencoded\" target=\"_self\">"
 										"<u>%s:</u><br><br>"
 										"%s: <select name=\"proc\">", "Get process memory", "Process");
-						strcat(buffer, templn);				
+						strcat(buffer, templn);
 						for (int i = 0; i < 16; i++)
 						{
 							if (1 < pid_list[i])
@@ -7185,7 +7202,7 @@ just_leave:
 						sprintf(templn, "<form action=\"/setmem.ps3mapi\" method=\"get\" enctype=\"application/x-www-form-urlencoded\" target=\"_self\">"
 										"<u>%s:</u><br><br>"
 										"%s: <select name=\"proc\">", "Set process memory" , "Process");
-						strcat(buffer, templn);				
+						strcat(buffer, templn);
 						for (int i = 0; i < 16; i++)
 						{
 							if (1 < pid_list[i])
@@ -7203,8 +7220,8 @@ just_leave:
 						{system_call_2(8, SYSCALL8_OPCODE_PS3MAPI, PS3MAPI_OPCODE_GET_FW_VERSION); versionfw = (int)(p1); }
 						char fwtype[32];
 						{system_call_3(8, SYSCALL8_OPCODE_PS3MAPI, PS3MAPI_OPCODE_GET_FW_TYPE, (u64)fwtype); }
-						sprintf(templn, "</select>   %s: <input name=\"addr\" type=\"text\" value=\"0\" size=\"18\" maxlength=\"16\" />"											
-						                "<br><br>%s:<br><br><table width=\"800\" border=\"0\" cellspacing=\"2\" cellpadding=\"0\"><tr><td style=\"text-align: left; float: left;\">"											
+						sprintf(templn, "</select>   %s: <input name=\"addr\" type=\"text\" value=\"0\" size=\"18\" maxlength=\"16\" />"
+						                "<br><br>%s:<br><br><table width=\"800\" border=\"0\" cellspacing=\"2\" cellpadding=\"0\"><tr><td style=\"text-align: left; float: left;\">"
 						                "<textarea name=\"val\" cols=\"111\" rows=\"3\" maxlength=\"199\">00</textarea></td></tr>"
 						                "<tr><td style=\"text-align: right; float: right;\"><br><input type=\"submit\" value=\" %s \"/></td></tr></table></form><br><hr color=\"#FF0000\"/>"
 										"Firmware: %X %s | PS3MAPI: webUI v%X, Server v%X, Core v%X | By NzV", "Address", "Value", "Set", versionfw, fwtype, PS3MAPI_WEBUI_VERSION, PS3MAPI_SERVER_VERSION, version);
@@ -7215,19 +7232,19 @@ just_leave:
 					if(strstr(param, "buzzer.ps3mapi"))
 					{
 						if(strstr(param, "buzzer.ps3mapi?"))
-						{	
+						{
 							if(strstr(param, "mode=1")) { system_call_3(SC_RING_BUZZER, 0x1004, 0x4, 0x6); }
 							else if(strstr(param, "mode=2")) { system_call_3(SC_RING_BUZZER, 0x1004, 0x7, 0x36); }
 							else if(strstr(param, "mode=3")) { system_call_3(SC_RING_BUZZER, 0x1004, 0xa, 0x1b6); }
-						}	
-						sprintf(templn, "<font face=\"Courier New\"><br>" 
+						}
+						sprintf(templn, "<font face=\"Courier New\"><br>"
 										"<b>%s --> %s --> %s</b>"
-										"<hr color=\"#0099FF\"/>" 
+										"<hr color=\"#0099FF\"/>"
 										"<form id=\"buzzer\" action=\"/buzzer.ps3mapi\" method=\"get\" enctype=\"application/x-www-form-urlencoded\" target=\"_self\"><br>"
 										"<b><u>%s:</u></b>  <select name=\"mode\">", "PS3M_API", "PS3 Commands", "Buzzer", "Mode");
-						strcat(buffer, templn);		
-						add_option_item("1" , "Simple", strstr(param, "mode=1"), buffer);				
-						add_option_item("2" , "Double", strstr(param, "mode=2"), buffer);				
+						strcat(buffer, templn);
+						add_option_item("1" , "Simple", strstr(param, "mode=1"), buffer);
+						add_option_item("2" , "Double", strstr(param, "mode=2"), buffer);
 						add_option_item("3" , "Triple", strstr(param, "mode=3"), buffer);
 						sprintf(templn, "</select>   <input type=\"submit\" value=\" %s \"/></td></form><br><hr color=\"#FF0000\"/>", "Ring");
 						strcat(buffer, templn);
@@ -7236,21 +7253,21 @@ just_leave:
 					if(strstr(param, "led.ps3mapi"))
 					{
 						if(strstr(param, "led.ps3mapi?"))
-						{	
+						{
 							if(strstr(param, "color=0"))
 							{
 								if(strstr(param, "mode=0")) {system_call_2(SC_SYS_CONTROL_LED, 0, 0); }
 								else if(strstr(param, "mode=1")) {system_call_2(SC_SYS_CONTROL_LED, 0, 1); }
 								else if(strstr(param, "mode=2")) {system_call_2(SC_SYS_CONTROL_LED, 0, 2); }
 								else if(strstr(param, "mode=3")) {system_call_2(SC_SYS_CONTROL_LED, 0, 3); }
-							}	
+							}
 							else if(strstr(param, "color=1"))
 							{
 								if(strstr(param, "mode=0")) {system_call_2(SC_SYS_CONTROL_LED, 1, 0); }
 								else if(strstr(param, "mode=1")) {system_call_2(SC_SYS_CONTROL_LED, 1, 1); }
 								else if(strstr(param, "mode=2")) {system_call_2(SC_SYS_CONTROL_LED, 1, 2); }
 								else if(strstr(param, "mode=3")) {system_call_2(SC_SYS_CONTROL_LED, 1, 3); }
-							}	
+							}
 							else if(strstr(param, "color=2"))
 							{
 								if(strstr(param, "mode=0")) {system_call_2(SC_SYS_CONTROL_LED, 2, 0); }
@@ -7259,20 +7276,20 @@ just_leave:
 								else if(strstr(param, "mode=3")) {system_call_2(SC_SYS_CONTROL_LED, 2, 3); }
 							}
 						}
-						sprintf(templn, "<font face=\"Courier New\"><br>" 
+						sprintf(templn, "<font face=\"Courier New\"><br>"
 										"<b>%s --> %s --> %s</b>"
 										"<hr color=\"#0099FF\"/>"
 										"<form id=\"led\" action=\"/led.ps3mapi\" method=\"get\" enctype=\"application/x-www-form-urlencoded\" target=\"_self\"><br>"
 										"<b><u>%s:</u></b>  <select name=\"color\">", "PS3M_API", "PS3 Commands", "Led", "Color");
-						strcat(buffer, templn);				
-						add_option_item("0" , "Red", strstr(param, "color=0"), buffer);				
-						add_option_item("1" , "Green", strstr(param, "color=1"), buffer);				
+						strcat(buffer, templn);
+						add_option_item("0" , "Red", strstr(param, "color=0"), buffer);
+						add_option_item("1" , "Green", strstr(param, "color=1"), buffer);
 						add_option_item("2" , "Yellow", strstr(param, "color=2"), buffer);
 						sprintf(templn, "</select>   <b><u>%s:</u></b>  <select name=\"mode\">", "Mode");
-						strcat(buffer, templn);				
-						add_option_item("0" , "Off", strstr(param, "mode=0"), buffer);				
-						add_option_item("1" , "On", strstr(param, "mode=1"), buffer);				
-						add_option_item("2" , "Blink slow", strstr(param, "mode=2"), buffer);				
+						strcat(buffer, templn);
+						add_option_item("0" , "Off", strstr(param, "mode=0"), buffer);
+						add_option_item("1" , "On", strstr(param, "mode=1"), buffer);
+						add_option_item("2" , "Blink slow", strstr(param, "mode=2"), buffer);
 						add_option_item("3" , "Blink fast", strstr(param, "mode=3"), buffer);
 						sprintf(templn, "</select>   <input type=\"submit\" value=\" %s \"/></form><br><hr color=\"#FF0000\"/>", "Set");
 						strcat(buffer, templn);
@@ -7282,10 +7299,10 @@ just_leave:
 					{
 						char msg[200];
 						if(strstr(param, "notify.ps3mapi?"))
-						{	
+						{
 							char *pos;
 							pos=strstr(param, "msg=");
-							if(pos) 
+							if(pos)
 							{
 								get_value(msg, pos + 4, 199);
 								show_msg(msg);
@@ -7295,7 +7312,7 @@ just_leave:
 										"<b>%s --> %s --> %s</b>"
 										"<hr color=\"#0099FF\"/>"
 										"<form action=\"/notify.ps3mapi\" method=\"get\" enctype=\"application/x-www-form-urlencoded\" target=\"_self\"><br><b><u>%s:</u></b><br><br>"
-										"<table width=\"800\" border=\"0\" cellspacing=\"2\" cellpadding=\"0\"><tr><td style=\"text-align: left; float: left;\">"											
+										"<table width=\"800\" border=\"0\" cellspacing=\"2\" cellpadding=\"0\"><tr><td style=\"text-align: left; float: left;\">"
 						                "<textarea name=\"msg\" cols=\"111\" rows=\"2\" maxlength=\"199\">%s</textarea></td></tr>"
 						                "<tr><td style=\"text-align: right; float: right;\"><br><input type=\"submit\" value=\" %s \"/></td></tr></table></form><br><hr color=\"#FF0000\"/>", "PS3M_API", "PS3 Commands", "Notify", "Message", msg, "Send");
 						strcat(buffer, templn);
@@ -7304,7 +7321,7 @@ just_leave:
 					if(strstr(param, "syscall.ps3mapi"))
 					{
 						if(strstr(param, "syscall.ps3mapi?"))
-						{	
+						{
 							if(strstr(param, "sc9=1")) { system_call_3(8, SYSCALL8_OPCODE_PS3MAPI, PS3MAPI_OPCODE_DISABLE_SYSCALL, 9); }
 							if(strstr(param, "sc10=1")) { system_call_3(8, SYSCALL8_OPCODE_PS3MAPI, PS3MAPI_OPCODE_DISABLE_SYSCALL, 10); }
 							if(strstr(param, "sc11=1")) { system_call_3(8, SYSCALL8_OPCODE_PS3MAPI, PS3MAPI_OPCODE_DISABLE_SYSCALL, 11); }
@@ -7312,14 +7329,14 @@ just_leave:
 							if(strstr(param, "sc36=1")) { system_call_3(8, SYSCALL8_OPCODE_PS3MAPI, PS3MAPI_OPCODE_DISABLE_SYSCALL, 36); }
 							if(strstr(param, "sc6=1")) { system_call_3(8, SYSCALL8_OPCODE_PS3MAPI, PS3MAPI_OPCODE_DISABLE_SYSCALL, 6); }
 							if(strstr(param, "sc7=1")) { system_call_3(8, SYSCALL8_OPCODE_PS3MAPI, PS3MAPI_OPCODE_DISABLE_SYSCALL, 7); }
-						}	
-						sprintf(templn, "<font face=\"Courier New\"><br>" 
+						}
+						sprintf(templn, "<font face=\"Courier New\"><br>"
 										"<b>%s --> %s --> %s</b>"
-										"<hr color=\"#0099FF\"/>" 
+										"<hr color=\"#0099FF\"/>"
 										"<table width=\"800\" border=\"0\" cellspacing=\"2\" cellpadding=\"0\">"
 										"<form id=\"syscall\" action=\"/syscall.ps3mapi\" method=\"get\" enctype=\"application/x-www-form-urlencoded\" target=\"_self\">"
 										"<br><tr><td width=\"260\" style=\"text-align: left; float: left;\">", "PS3M_API", "PS3 Commands", "CFW syscall");
-						strcat(buffer, templn);	
+						strcat(buffer, templn);
 						bool state = false;
 						int ret_val = -1;
 						{ system_call_3(8, SYSCALL8_OPCODE_PS3MAPI, PS3MAPI_OPCODE_CHECK_SYSCALL, 6); ret_val = (int)p1;}
@@ -7353,26 +7370,26 @@ just_leave:
 						ret_val = -1;
 						add_check_box("sc36", "1", "[36]Map Game", NULL, state, buffer);
 						sprintf(templn, "</td></tr><tr><td style=\"text-align: right; float: right;\"><br><input type=\"submit\" value=\" %s \"/></td></tr></form></table><br><hr color=\"#FF0000\"/>", "Disable");
-						strcat(buffer, templn);		
+						strcat(buffer, templn);
 					}
 					else
 					if(strstr(param, "syscall8.ps3mapi"))
 					{
 						if(strstr(param, "syscall8.ps3mapi?"))
-						{	
+						{
 							if(strstr(param, "mode=0")) {{ system_call_3(8, SYSCALL8_OPCODE_PS3MAPI, PS3MAPI_OPCODE_PDISABLE_SYSCALL8, 0); }}
 							if(strstr(param, "mode=1")) {{ system_call_3(8, SYSCALL8_OPCODE_PS3MAPI, PS3MAPI_OPCODE_PDISABLE_SYSCALL8, 1); }}
 							if(strstr(param, "mode=2")) {{ system_call_3(8, SYSCALL8_OPCODE_PS3MAPI, PS3MAPI_OPCODE_PDISABLE_SYSCALL8, 2); }}
 							if(strstr(param, "mode=3")) {{ system_call_3(8, SYSCALL8_OPCODE_PS3MAPI, PS3MAPI_OPCODE_PDISABLE_SYSCALL8, 3); }}
 							if(strstr(param, "mode=4")) {{ system_call_3(8, SYSCALL8_OPCODE_PS3MAPI, PS3MAPI_OPCODE_DISABLE_SYSCALL, 8); }}
-						}	
-						sprintf(templn, "<font face=\"Courier New\"><br>" 
+						}
+						sprintf(templn, "<font face=\"Courier New\"><br>"
 										"<b>%s --> %s --> %s</b>"
-										"<hr color=\"#0099FF\"/>" 
+										"<hr color=\"#0099FF\"/>"
 										"<table width=\"800\" border=\"0\" cellspacing=\"2\" cellpadding=\"0\">"
 										"<form id=\"syscall8\" action=\"/syscall8.ps3mapi\" method=\"get\" enctype=\"application/x-www-form-urlencoded\" target=\"_self\">"
 										"<br><tr><td width=\"260\" style=\"text-align: left; float: left;\">", "PS3M_API", "PS3 Commands", "CFW syscall 8");
-						strcat(buffer, templn);	
+						strcat(buffer, templn);
 						int ret_val = -1;
 						{ system_call_2(8, SYSCALL8_OPCODE_PS3MAPI, PS3MAPI_OPCODE_PCHECK_SYSCALL8); ret_val = (int)p1;}
 						add_radio_button("mode", "0", "sc8_0", "Fully enabled", NULL, (ret_val == 0), buffer);
@@ -7381,7 +7398,7 @@ just_leave:
 						add_radio_button("mode", "3", "sc8_3", "Fake disabled (can be re-enabled)", NULL, (ret_val == 3), buffer);
 						add_radio_button("mode", "4", "sc8_4", "Fully disabled (cant be re-enabled)", NULL, (ret_val < 0), buffer);
 						sprintf(templn, "</td></tr><tr><td style=\"text-align: right; float: right;\"><br><input type=\"submit\" value=\" %s \"/></td></tr></form></table><br><hr color=\"#FF0000\"/>", "Set");
-						strcat(buffer, templn);	
+						strcat(buffer, templn);
 					}
 					else
 					if(strstr(param, "getmem.ps3mapi"))
@@ -7390,10 +7407,10 @@ just_leave:
 						u64 address = 0;
 						int length = 0;
 						if(strstr(param, "getmem.ps3mapi?"))
-						{	
+						{
 							char *pos;
 							pos=strstr(param, "proc=");
-							if(pos) 
+							if(pos)
 							{
 								char pid_tmp[20];
 								get_value(pid_tmp, pos + 5, 19);
@@ -7401,7 +7418,7 @@ just_leave:
 							}
 							else goto getmem_err_arg;
 							pos=strstr(param, "addr=");
-							if(pos) 
+							if(pos)
 							{
 								char addr_tmp[40];
 								get_value(addr_tmp, pos + 5, 39);
@@ -7409,23 +7426,23 @@ just_leave:
 							}
 							else goto getmem_err_arg;
 							pos=strstr(param, "len=");
-							if(pos) 
+							if(pos)
 							{
 								char len_tmp[20];
 								get_value(len_tmp, pos + 4, 19);
 								length = val(len_tmp);
 							}
-							else goto getmem_err_arg;		
+							else goto getmem_err_arg;
 						}
 	getmem_err_arg:
 						sprintf(templn, "<font face=\"Courier New\"><br>"
 										"<b>%s --> %s --> %s</b>"
 										"<hr color=\"#0099FF\"/>"
 										"<form action=\"/getmem.ps3mapi\" method=\"get\" enctype=\"application/x-www-form-urlencoded\" target=\"_self\"><br><b><u>%s:</u></b>  ", "PS3M_API", "Processes Commands", "Get process memory", "Process");
-						strcat(buffer, templn);				
+						strcat(buffer, templn);
 						if(pid == 0 )
 						{
-							strcat(buffer, "<select name=\"proc\">");	
+							strcat(buffer, "<select name=\"proc\">");
 							char pid_str[32];
 							u32 pid_list[16];
 							{system_call_3(8, SYSCALL8_OPCODE_PS3MAPI, PS3MAPI_OPCODE_GET_ALL_PROC_PID, (u64)pid_list); }
@@ -7440,24 +7457,24 @@ just_leave:
 									if (1 < strlen(templn))add_option_item(pid_str , templn, true, buffer);
 								}
 							}
-							strcat(buffer, "</select>   ");	
+							strcat(buffer, "</select>   ");
 						}
 						else
 						{
 							memset(templn, 0, sizeof(templn));
 							{system_call_4(8, SYSCALL8_OPCODE_PS3MAPI, PS3MAPI_OPCODE_GET_PROC_NAME_BY_PID, (u64)pid, (u64)templn); }
-							strcat(buffer, templn);	
+							strcat(buffer, templn);
 							sprintf(templn, "<input name=\"proc\" type=\"hidden\" value=\"%u\" /><br><br>", pid);
-							strcat(buffer, templn);				
+							strcat(buffer, templn);
 						}
 						sprintf(templn, "<b><u>%s:</u></b> <input name=\"addr\" type=\"text\" value=\"%X\" size=\"18\" maxlength=\"16\" />"
 										"   <b><u>%s:</u></b> <input name=\"len\" type=\"number\" value=\"%i\" min=\"1\" max=\"2048\" />"
 										"   <input type=\"submit\" value=\" %s \"/></form>", "Address", address, "Length", length, "Get");
-						strcat(buffer, templn);		
+						strcat(buffer, templn);
 						if(pid != 0  && length != 0)
 						{
 							sprintf(templn, "<br><br><b><u>%s:</u></b><br><br><textarea name=\"output\" cols=\"111\" rows=\"10\" readonly=\"true\">", "Output");
-						    strcat(buffer, templn);		
+						    strcat(buffer, templn);
 							char buffer_tmp[length + 1];
 							memset(buffer_tmp, 0, sizeof(buffer_tmp));
 							int retval = -1;
@@ -7468,10 +7485,10 @@ just_leave:
 								{
 									sprintf(templn, "%02X", (uint8_t)buffer_tmp[i]);
 									strcat(buffer, templn);
-								}	
+								}
 							}
 							else {sprintf(templn, "%s: %i", "Error", retval); strcat(buffer, templn);}
-							strcat(buffer, "</textarea><br>");		
+							strcat(buffer, "</textarea><br>");
 						}
 						strcat(buffer, "<br><hr color=\"#FF0000\"/>");
 					}
@@ -7484,10 +7501,10 @@ just_leave:
 						char value[130];
 						char val_tmp[260];
 						if(strstr(param, "setmem.ps3mapi?"))
-						{	
+						{
 							char *pos;
 							pos=strstr(param, "proc=");
-							if(pos) 
+							if(pos)
 							{
 								char pid_tmp[20];
 								get_value(pid_tmp, pos + 5, 19);
@@ -7495,7 +7512,7 @@ just_leave:
 							}
 							else goto setmem_err_arg;
 							pos=strstr(param, "addr=");
-							if(pos) 
+							if(pos)
 							{
 								char addr_tmp[40];
 								get_value(addr_tmp, pos + 5, 39);
@@ -7503,23 +7520,23 @@ just_leave:
 							}
 							else goto setmem_err_arg;
 							pos=strstr(param, "val=");
-							if(pos) 
+							if(pos)
 							{
 								get_value(val_tmp, pos + 4, 259);
 								length = (strlen(val_tmp) / 2);
 								Hex2Bin(val_tmp, value);
 							}
-							else goto setmem_err_arg;		
+							else goto setmem_err_arg;
 						}
 	setmem_err_arg:
 						sprintf(templn, "<font face=\"Courier New\"><br>"
 										"<b>%s --> %s --> %s</b>"
 										"<hr color=\"#0099FF\"/>"
 										"<form action=\"/setmem.ps3mapi\" method=\"get\" enctype=\"application/x-www-form-urlencoded\" target=\"_self\"><br><b><u>%s:</u></b>  ", "PS3M_API", "Processes Commands", "Set process memory", "Process");
-						strcat(buffer, templn);				
+						strcat(buffer, templn);
 						if(pid == 0 )
 						{
-							strcat(buffer, "<select name=\"proc\">");	
+							strcat(buffer, "<select name=\"proc\">");
 							char pid_str[32];
 							u32 pid_list[16];
 							{system_call_3(8, SYSCALL8_OPCODE_PS3MAPI, PS3MAPI_OPCODE_GET_ALL_PROC_PID, (u64)pid_list); }
@@ -7534,37 +7551,41 @@ just_leave:
 									if (1 < strlen(templn))add_option_item(pid_str , templn, true, buffer);
 								}
 							}
-							strcat(buffer, "</select>   ");	
+							strcat(buffer, "</select>   ");
 						}
 						else
 						{
 							memset(templn, 0, sizeof(templn));
 							{system_call_4(8, SYSCALL8_OPCODE_PS3MAPI, PS3MAPI_OPCODE_GET_PROC_NAME_BY_PID, (u64)pid, (u64)templn); }
-							strcat(buffer, templn);	
+							strcat(buffer, templn);
 							sprintf(templn, "<input name=\"proc\" type=\"hidden\" value=\"%u\" /><br><br>", pid);
-							strcat(buffer, templn);				
+							strcat(buffer, templn);
 						}
 						if (strlen(val_tmp) < 1) sprintf(val_tmp, "%02X", 0);
-						sprintf(templn, "<b><u>%s:</u></b> <input name=\"addr\" type=\"text\" value=\"%X\" size=\"18\" maxlength=\"16\" />"	
+						sprintf(templn, "<b><u>%s:</u></b> <input name=\"addr\" type=\"text\" value=\"%X\" size=\"18\" maxlength=\"16\" />"
 										"<br><br><b><u>%s:</u></b><br><br>"
-						                "<table width=\"800\" border=\"0\" cellspacing=\"2\" cellpadding=\"0\"><tr><td style=\"text-align: left; float: left;\">"											
+						                "<table width=\"800\" border=\"0\" cellspacing=\"2\" cellpadding=\"0\"><tr><td style=\"text-align: left; float: left;\">"
 						                "<textarea name=\"val\" cols=\"111\" rows=\"3\" maxlength=\"199\">%s</textarea></td></tr>"
 						                "<tr><td style=\"text-align: right; float: right;\"><br><input type=\"submit\" value=\" %s \"/></td></tr></table></form>", "Address", address, "Value", val_tmp, "Set");
-						strcat(buffer, templn);		
+						strcat(buffer, templn);
 						if(pid != 0 && length != 0)
 						{
 							int retval = -1;
 							{system_call_6(8, SYSCALL8_OPCODE_PS3MAPI, PS3MAPI_OPCODE_SET_PROC_MEM, (u64)pid, (u64)address, (u64)value, (u64)length); retval = (int)p1;}
 							if (0 <= retval) sprintf(templn, "<br><b><u>%s!</u></b>", "Done");
 							else sprintf(templn, "<br><b><u>%s: %i</u></b>", "Error", retval);
-							strcat(buffer, templn);	
+							strcat(buffer, templn);
 						}
 						strcat(buffer, "<br><hr color=\"#FF0000\"/>");
 					}
-#endif																
-					
+#endif
+
 					else
+#ifdef PS2_DISC
+					if(mount_ps3 || forced_mount || !memcmp(param, "/mount.ps3", 10) || !memcmp(param, "/mount.ps2", 10) || !memcmp(param, "/mount_ps2", 10) || !memcmp(param, "/copy.ps3", 9))
+#else
 					if(mount_ps3 || forced_mount || !memcmp(param, "/mount.ps3", 10) || !memcmp(param, "/copy.ps3", 9))
+#endif
 					{
 						//unmount game
 						if(strstr(param, "ps3/unmount"))
@@ -7573,6 +7594,14 @@ just_leave:
 
 							strcat(buffer, STR_GAMEUM);
 						}
+#ifdef PS2_DISC
+						else if(strstr(param, "ps2/unmount"))
+						{
+							do_umount_ps2disc(false);
+
+							strcat(buffer, STR_GAMEUM);
+						}
+#endif
 						else
 						{
 							if(strstr(param, "?random="))
@@ -7589,7 +7618,19 @@ just_leave:
 							{
 								for(u16 n=0; n<strlen(param)-9; n++)
 									if(memcmp(param + n, "/PS3_GAME", 9)==0) {param[n]=0; break;}
-
+#ifdef PS2_DISC
+								if(!memcmp(param, "/mount.ps2", 10))
+								{
+									mounted=mount_ps2disc(param+plen);
+								}
+								else
+								if(!memcmp(param, "/mount_ps2", 10))
+								{
+									do_umount(true);
+									mounted=mount_ps2disc(param+plen);
+								}
+								else
+#endif
 								if(!forced_mount && game_name())
 								{
 									sprintf(templn, "<H3>%s : <a href=\"/mount.ps3/unmount\">%s %s</a></H3><hr><a href=\"/mount_ps3%s\">", STR_UNMOUNTGAME, _game_name+4, _game_name+20, param+plen); strcat(buffer, templn);
@@ -7636,7 +7677,7 @@ just_leave:
 
 											// for	cobra req: /dev_flash/sys/stage2.bin & /dev_flash/sys/lv2_self
 											sprintf(tempstr, "%s", param+plen);
-											tempstr[strrchr(tempstr, '/')]=0; strcat(tempstr, "/stage2.bin");
+											strcpy(strrchr(tempstr, '/'), "/stage2.bin");
 
 											sprintf(target, "/dev_blind/sys/stage2.bin");
 											if(cellFsStat(target, &buf)!=CELL_FS_SUCCEEDED)
@@ -7775,8 +7816,41 @@ just_leave:
 									sprintf(templn, "%s: %s<hr/><img src=\"%s\"><hr/>%s", STR_MOVIETOM,param+plen, enc_dir_name, mounted?STR_MOVIELOADED:STR_ERROR);
 								else
 									sprintf(templn, "%s: %s<hr/><a href=\"/dev_bdvd\"><img src=\"%s\" border=0></a><hr/>%s", STR_GAMETOM, param+plen, enc_dir_name, mounted?STR_GAMELOADED:STR_ERROR);
-
 								strcat(buffer, templn);
+
+#ifdef PS2_DISC
+								if(mounted && (strstr(param+plen, "/GAME") || strstr(param+plen, "/PS3ISO") || strstr(param+plen, ".ntfs[PS3ISO]")))
+								{
+									CellFsDirent entry; u64 read_e; int fd2; u16 pcount=0; u32 tlen=strlen(buffer)+8;
+
+									sprintf(target, "%s", param+plen); u8 is_iso=0;
+									if(strstr(target, "Sing"))
+									{
+										if(strstr(target, "/PS3ISO")) {strcpy(strstr(target, "/PS3ISO"), "/PS2DISC\0"); is_iso=1;}
+										if(strstr(target, ".ntfs[PS3ISO]")) {strcpy(target, "/dev_hdd0/PS2DISC\0"); is_iso=1;}
+									}
+
+									// check for [PS2] extracted folders
+									if(cellFsOpendir(target, &fd2) == CELL_FS_SUCCEEDED)
+									{
+										while((cellFsReaddir(fd2, &entry, &read_e) == 0 && read_e > 0))
+										{
+											if((entry.d_name[0]=='.')) continue;
+
+											if (is_iso || strstr(entry.d_name, "[PS2")!=NULL)
+											{
+												if(pcount==0) strcat(buffer, "<br><HR>");
+												strenc(enc_dir_name, entry.d_name);
+												sprintf(templn, "<a href=\"/mount.ps2%s/%s\">%s</a><br>", target, enc_dir_name, entry.d_name);
+
+												tlen+=strlen(tempstr);
+												if(tlen>(BUFFER_SIZE-1024)) break;
+												strcat(buffer, templn); pcount++;
+											}
+										}
+									}
+								}
+#endif
 							}
 
 							if(plen==IS_COPY && !copy_in_progress)
@@ -8669,8 +8743,9 @@ static void handleclient_ftp(u64 conn_s_ftp_p)
 						else
 						if(strcasecmp(cmd, "CHMOD") == 0)
 						{
-							absPath(param, filename, cwd);
 							split = ssplit(param, cmd, 5, filename, MAX_PATH_LEN-1);
+
+							strcpy(param, filename); absPath(filename, param, cwd);
 
 							ssend(conn_s_ftp, FTP_OK_250);
 							int attributes = val(cmd);
@@ -11543,6 +11618,9 @@ static void do_umount(bool clean)
 	//if(cobra_mode)
 	{
 		do_umount_iso();
+#ifdef PS2_DISC
+		do_umount_ps2disc(false);
+#endif
 		sys_timer_usleep(20000);
 
 		cobra_unset_psp_umd();
@@ -11576,6 +11654,63 @@ static void do_umount(bool clean)
 	}
 #endif
 }
+
+#ifdef PS2_DISC
+static void do_umount_ps2disc(bool mount)
+{
+	system_call_3(SC_FS_UMOUNT, (u64)(char*)"/dev_ps2disc", 0, 1);
+
+    if(!mount) return;
+
+	{system_call_8(SC_FS_MOUNT, (u64)(char*)"CELL_FS_IOS:BDVD_DRIVE", (u64)(char*)"CELL_FS_ISO9660", (u64)(char*)"/dev_ps2disc", 0, 1, 0, 0, 0);}
+}
+
+static bool mount_ps2disc(char *path)
+{
+	do_umount_ps2disc(true);
+
+	if(!isDir(path)) return false;
+
+#ifdef COBRA_ONLY
+	sys_map_path((char*)"/dev_ps2disc", path);
+#else
+
+	max_mapped=0;
+	add_to_map((char*)"/dev_ps2disc", path);
+	add_to_map((char*)"//dev_ps2disc", path);
+
+	u64 map_data  = (MAP_BASE);
+	u64 map_paths = (MAP_BASE) + (max_mapped+1) * 0x20;
+
+	for(u8 n=0; n<0x20; n++)
+	{
+		pokeq(map_data + (n * 0x20) + 0x00, 0);
+		pokeq(map_data + (n * 0x20) + 0x08, 0);
+		pokeq(map_data + (n * 0x20) + 0x10, 0);
+		pokeq(map_data + (n * 0x20) + 0x18, 0);
+	}
+
+	for(u8 n=0; n<max_mapped; n++)
+	{
+		if(map_paths>0x80000000007FE800ULL) break;
+		pokeq(map_data + (n * 0x20) + 0x10, map_paths);
+		string_to_lv2(file_to_map[n].src, map_paths);
+		map_paths+= (strlen(file_to_map[n].src)+8)&0x7f8;
+
+		pokeq(map_data + (n * 0x20) + 0x18, map_paths);
+		string_to_lv2(file_to_map[n].dst, map_paths);
+		map_paths+= (strlen(file_to_map[n].dst)+8)&0x7f8;
+
+		pokeq(map_data + (n * 0x20) + 0x08, strlen(file_to_map[n].dst));
+		pokeq(map_data + (n * 0x20) + 0x00, strlen(file_to_map[n].src));
+	}
+#endif
+
+	if(!isDir("/dev_ps2disc")) sys_timer_sleep(2);
+	if(isDir("/dev_ps2disc")) return true;
+	return false;
+}
+#endif
 
 static bool mount_with_mm(const char *_path0, u8 do_eject)
 {
