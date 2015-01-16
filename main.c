@@ -42,7 +42,7 @@
 //#define LITE_EDITION	1	// no ps3netsrv support, smaller memory footprint
 #define WEB_CHAT		1
 #define FIX_GAME		1
-//#define DEBUG_MEM		1
+#define DEBUG_MEM		1
 //#define PS2_DISC		1	// uncomment to support /mount.ps2 (mount ps2 game folder as /dev_ps2disc)
 //#define NOSINGSTAR	1
 //#define SWAP_KERNEL	1
@@ -6165,7 +6165,7 @@ html_response:
 						pokeq(get_fan_policy_offset, backup[5]);
 					}
 
-					uint64_t eid0_idps[2], buffr[0x40], start_sector;
+					uint64_t eid0_idps[2], buffr[0x40], start_sector, MAC;
 					uint32_t read;
 					sys_device_handle_t source;
 					if(sys_storage_open(0x100000000000004ULL, 0, &source, 0)!=0)
@@ -6182,6 +6182,8 @@ html_response:
 					eid0_idps[1]=buffr[0x0F];
 
 					get_idps_psid();
+
+					MAC = peek_lv1(0x800000000007C1B0ULL);
 
 					uint32_t blockSize;
 					uint64_t freeSize;
@@ -6203,7 +6205,8 @@ html_response:
 															"FAN SPEED: 0x%X (%i%%)<hr><small>"
 															"PSID LV2 : %016llX%016llX<hr>"
 															"IDPS EID0: %016llX%016llX<br>"
-															"IDPS LV2 : %016llX%016llX</b>"
+															"IDPS LV2 : %016llX%016llX<br>"
+                                                            "MAC Addr : %010llX</b>"
 									"</small></font><hr>",
 									t1, max_temp, t2,
 									t1f, (int)(1.8f*(float)max_temp+32.f),
@@ -6211,7 +6214,7 @@ html_response:
 									fan_speed, (int)((int)fan_speed*100)/255,
 									PSID[0], PSID[1],
 									eid0_idps[0], eid0_idps[1],
-									IDPS[0], IDPS[1]);
+									IDPS[0], IDPS[1], MAC);
 					strcat(buffer, templn);
 					is_cpursx = 0; goto send_response;
 
