@@ -6724,7 +6724,7 @@ just_leave:
 							found_address=address; found=true;
 						}
 
-						if(address+0x200<upper_memory+8)
+						if(address+0x200>(upper_memory+8)) address=0;
 
 						flen=(bits8)?1:(bits16)?2:(bits32)?4:8;
 						address&=0xFFFFFFFFFFFFFFF0ULL;
