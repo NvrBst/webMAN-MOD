@@ -42,6 +42,7 @@
 //#define LITE_EDITION	1	// no ps3netsrv support, smaller memory footprint
 #define WEB_CHAT		1
 #define FIX_GAME		1
+//#define DEBUG_MEM		1
 //#define PS2_DISC		1	// uncomment to support /mount.ps2 (mount ps2 game folder as /dev_ps2disc)
 //#define NOSINGSTAR	1
 //#define SWAP_KERNEL	1
@@ -308,7 +309,7 @@ static sys_ppu_thread_t thread_id		=-1;
 #define START_DAEMON		(0xC0FEBABE)
 #define REFRESH_CONTENT		(0xC0FEBAB0)
 
-#define LV1_UPPER_MEMORY	0x8000000001000000ULL
+#define LV1_UPPER_MEMORY	0x8000000010000000ULL
 #define LV2_UPPER_MEMORY	0x8000000000800000ULL
 
 enum FIX_GAME_MODES
@@ -1182,6 +1183,10 @@ void poke_lv1( uint64_t addr, uint64_t val);
 
 u32 lv2peek32(u64 addr);
 void lv2poke32(u64 addr, u32 value);
+
+#ifdef DEBUG_MEM
+void dump_mem(char *file, uint64_t start, uint32_t size_mb);
+#endif
 
 u32 lv2peek32(u64 addr)
 {
@@ -5647,13 +5652,16 @@ restart:
 
 			if(!is_busy && (strstr(param, "index.ps3?")  ||
 							strstr(param, "refresh.ps3") ||
-#ifndef LITE_EDITION
+#ifdef DEBUG_MEM
 							strstr(param, "peek.lv2?")   ||
 							strstr(param, "poke.lv2?")   ||
 							strstr(param, "find.lv2?")   ||
 							strstr(param, "peek.lv1?")   ||
 							strstr(param, "poke.lv1?")   ||
 							strstr(param, "find.lv1?")   ||
+							strstr(param, "dump.ps3")    ||
+#endif
+#ifndef LITE_EDITION
 							strstr(param, "delete.ps3")  ||
 							strstr(param, "delete_ps3")  ||
 #endif
@@ -6602,7 +6610,28 @@ just_leave:
 						else
 							strcat(buffer, extgd?STR_ENABLED:STR_DISABLED);
 					}
-#ifndef LITE_EDITION
+#ifdef DEBUG_MEM
+					else
+					if(strstr(param, "dump.ps3"))
+					{
+						char dump_file[MAX_PATH_LEN]; uint64_t start=0; uint32_t size=8;
+						strcat(buffer, "Dump: [<a href=\"/dump.ps3?mem\">Full Memory</a>] [<a href=\"/dump.ps3?lv1\">LV1</a>] [<a href=\"/dump.ps3?lv2\">LV2</a>]<hr>");
+
+						if(strlen(param+10))
+						{
+							if(strstr(param,"?lv1")) {size=16;} else
+							if(strstr(param,"?lv2")) {start=0x1000000;} else
+							if(strstr(param,"?f"))   {size=256;} else
+							if(strstr(param,"?m"))   {size=256;} else
+							{
+								start= convertH(param+10);
+								if(start>=LV1_UPPER_MEMORY-((uint64_t)(size*_1MB_))) start=LV1_UPPER_MEMORY-((uint64_t)(size*_1MB_));
+							}
+							sprintf(dump_file, "/dev_hdd0/dump_%s.bin", param+10);
+							dump_mem(dump_file, start, size);
+							sprintf(templn, "<p>Dumped: <a href=\"%s\">%s</a> [<a href=\"/delete.ps3%s\">%s</a>]", dump_file, dump_file+10, dump_file, STR_DELETE); strcat(buffer, templn);
+						}
+					}
 					else
 					if(strstr(param, "peek.lv") || strstr(param, "poke.lv") || strstr(param, "find.lv"))
 					{
@@ -6737,7 +6766,10 @@ just_leave:
 
 							p++; if(p>=0x10) p=0;
 						}
-						strcat(buffer, "</pre>");
+						strcat(buffer, "<hr>Dump: [<a href=\"/dump.ps3?mem\">Full Memory</a>] [<a href=\"/dump.ps3?lv1\">LV1</a>] [<a href=\"/dump.ps3?lv2\">LV2</a>]");
+						sprintf(templn, " [<a href=\"/dump.ps3?%x\">Dump 0x%x</a>]", address, address); strcat(buffer, templn);
+						sprintf(templn, " <a href=\"/peek.lv%i?%x\">&lt;&lt;</a> <a href=\"/peek.lv%i?%x\">&lt;Back</a>", lv1?1:2, ((address-0x1000)>=0)?(address-0x1000):0, lv1?1:2, ((address-0x200)>=0)?(address-0x200):0); strcat(buffer, templn);
+						sprintf(templn, " <a href=\"/peek.lv%i?%x\">Next&gt;</a> <a href=\"/peek.lv%i?%x\">&gt;&gt;</a></pre>", lv1?1:2, ((address+0x400)<upper_memory)?(address+0x200):(upper_memory-0x200), lv1?1:2, ((lv1+0x1200)<upper_memory)?(address+0x1000):(upper_memory-0x200)); strcat(buffer, templn);
 					}
 #endif
 					else
@@ -7168,8 +7200,11 @@ just_leave:
 						}
 						sprintf(templn, "</select>   %s: <input name=\"addr\" type=\"text\" value=\"0\" size=\"18\" maxlength=\"16\" />"
 										"   %s: <input name=\"len\" type=\"number\" value=\"1\" min=\"1\" max=\"2048\" />"
-										"   <input type=\"submit\" value=\" %s \"/></form><br><br>", "Address", "Length", "Get");
+										"   <input type=\"submit\" value=\" %s \"/></form><br>", "Address", "Length", "Get");
 						strcat(buffer, templn);
+
+						strcat(buffer, "Dump: [<a href=\"/dump.ps3?mem\">Full Memory</a>] [<a href=\"/dump.ps3?lv1\">LV1</a>] [<a href=\"/dump.ps3?lv2\">LV2</a>]<p>");
+
 						//SetMem
 						sprintf(templn, "<form action=\"/setmem.ps3mapi\" method=\"get\" enctype=\"application/x-www-form-urlencoded\" target=\"_self\">"
 										"<u>%s:</u><br><br>"
@@ -7381,14 +7416,6 @@ just_leave:
 						if(strstr(param, "getmem.ps3mapi?"))
 						{
 							char *pos;
-							pos=strstr(param, "proc=");
-							if(pos)
-							{
-								char pid_tmp[20];
-								get_value(pid_tmp, pos + 5, 19);
-								pid = val(pid_tmp);
-							}
-							else goto getmem_err_arg;
 							pos=strstr(param, "addr=");
 							if(pos)
 							{
@@ -7403,6 +7430,14 @@ just_leave:
 								char len_tmp[20];
 								get_value(len_tmp, pos + 4, 19);
 								length = val(len_tmp);
+							}
+							else goto getmem_err_arg;
+							pos=strstr(param, "proc=");
+							if(pos)
+							{
+								char pid_tmp[20];
+								get_value(pid_tmp, pos + 5, 19);
+								pid = val(pid_tmp);
 							}
 							else goto getmem_err_arg;
 						}
@@ -7443,6 +7478,7 @@ just_leave:
 										"   <b><u>%s:</u></b> <input name=\"len\" type=\"number\" value=\"%i\" min=\"1\" max=\"2048\" />"
 										"   <input type=\"submit\" value=\" %s \"/></form>", "Address", address, "Length", length, "Get");
 						strcat(buffer, templn);
+
 						if(pid != 0  && length != 0)
 						{
 							sprintf(templn, "<br><br><b><u>%s:</u></b><br><br><textarea name=\"output\" cols=\"111\" rows=\"10\" readonly=\"true\">", "Output");
@@ -7463,6 +7499,8 @@ just_leave:
 							strcat(buffer, "</textarea><br>");
 						}
 						strcat(buffer, "<br><hr color=\"#FF0000\"/>");
+						strcat(buffer, "Dump: [<a href=\"/dump.ps3?mem\">Full Memory</a>] [<a href=\"/dump.ps3?lv1\">LV1</a>] [<a href=\"/dump.ps3?lv2\">LV2</a>]");
+						sprintf(templn, " [<a href=\"/dump.ps3?%x\">Dump 0x%x</a>] [<a href=\"/peek.lv1?%x\">Peek 0x%x</a>]", address, address, address, address); strcat(buffer, templn);
 					}
 					else
 					if(strstr(param, "setmem.ps3mapi"))
@@ -7475,14 +7513,6 @@ just_leave:
 						if(strstr(param, "setmem.ps3mapi?"))
 						{
 							char *pos;
-							pos=strstr(param, "proc=");
-							if(pos)
-							{
-								char pid_tmp[20];
-								get_value(pid_tmp, pos + 5, 19);
-								pid = val(pid_tmp);
-							}
-							else goto setmem_err_arg;
 							pos=strstr(param, "addr=");
 							if(pos)
 							{
@@ -7497,6 +7527,14 @@ just_leave:
 								get_value(val_tmp, pos + 4, 259);
 								length = (strlen(val_tmp) / 2);
 								Hex2Bin(val_tmp, value);
+							}
+							else goto setmem_err_arg;
+							pos=strstr(param, "proc=");
+							if(pos)
+							{
+								char pid_tmp[20];
+								get_value(pid_tmp, pos + 5, 19);
+								pid = val(pid_tmp);
 							}
 							else goto setmem_err_arg;
 						}
@@ -9378,31 +9416,6 @@ relisten:
 	sys_ppu_thread_exit(0);
 }
 
-
-/*
-uint64_t peek(uint64_t addr) //lv1
-{
-	system_call_1(SC_PEEK_LV1, (uint64_t) addr);
-	return (uint64_t) p1;
-}
-
-void poke(uint64_t addr, uint64_t val) //lv1
-{
-	system_call_2(SC_POKE_LV1, (uint64_t) addr, (uint64_t) val);
-}
-
-static uint64_t peek_chunk(uint64_t start, uint64_t size, uint8_t* buf) // read from lv1
-{
-	uint64_t i = 0, t = 0;
-	for(i = 0; i < size; i += 8){
-		t = peek(start + i);
-		memcpy(buf + i, &t, 8);
-	}
-
-	return 0;
-}
-*/
-
 /*
 	u64 sa=0x03300000ULL;
 	u64 offset=0;
@@ -9417,28 +9430,44 @@ static uint64_t peek_chunk(uint64_t start, uint64_t size, uint8_t* buf) // read 
 				poke(0x8000000000000000ULL+i2, 0x30405060708090A0ULL);
 		}
 	}
-
-	int fp, i;
-	uint64_t sw;
-	uint32_t mem_size = (512 * 1024);
-	sys_addr_t sys_mem = 0;
-	uint64_t start = 0x8000000000000000ULL;
-
-	sys_memory_allocate(mem_size, SYS_MEMORY_PAGE_SIZE_64K, &sys_mem);
-	uint8_t *mem_buf	= (uint8_t*)sys_mem;
-
-	if(cellFsOpen((char*)"/dev_hdd0/memory.bin", CELL_FS_O_CREAT | CELL_FS_O_TRUNC | CELL_FS_O_WRONLY, &fp, NULL, 0)==CELL_FS_SUCCEEDED)
-	{
-		for(i = 0; i < 512; i++)
-		{
-			peek_chunk(start + (i * mem_size), mem_size, mem_buf);
-			cellFsWrite(fp, mem_buf, mem_size, &sw);
-		}
-		cellFsClose(fp);
-	}
-	sys_memory_free((sys_addr_t)sys_mem);
-	show_msg((char*)"Memory dump completed!");
 */
+
+#ifdef DEBUG_MEM
+static void peek_chunk(uint64_t start, uint64_t size, uint8_t* buf) // read from lv1
+{
+	uint64_t i = 0, t = 0;
+	for(i = 0; i < size; i += 8)
+	{
+		t = peek_lv1(start + i); memcpy(buf + i, &t, 8);
+	}
+}
+
+void dump_mem(char *file, uint64_t start, uint32_t size_mb)
+{
+	int fp;
+	uint64_t sw;
+	uint32_t mem_size = (_128KB_), i;
+	sys_addr_t sys_mem = 0;
+	start |= 0x8000000000000000ULL;
+
+	if(sys_memory_allocate(mem_size, SYS_MEMORY_PAGE_SIZE_64K, &sys_mem)==0)
+	{
+		uint8_t *mem_buf	= (uint8_t*)sys_mem;
+
+		if(cellFsOpen((char*)file, CELL_FS_O_CREAT | CELL_FS_O_TRUNC | CELL_FS_O_WRONLY, &fp, NULL, 0)==CELL_FS_SUCCEEDED)
+		{
+			for(i = 0; i < size_mb*8UL; i++)
+			{
+				peek_chunk(start + (i * mem_size), mem_size, mem_buf);
+				cellFsWrite(fp, mem_buf, mem_size, &sw);
+			}
+			cellFsClose(fp);
+		}
+		sys_memory_free((sys_addr_t)sys_mem);
+		show_msg((char*)"Memory dump completed!");
+	}
+}
+#endif
 
 #ifdef NOSINGSTAR
 void no_singstar_icon()
