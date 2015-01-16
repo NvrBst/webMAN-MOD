@@ -110,7 +110,7 @@ SYS_MODULE_STOP(wwwd_stop);
 
 #define MY_GAMES_XML			"/dev_hdd0/xmlhost/game_plugin/mygames.xml"
 
-#define WM_VERSION			"1.41.07 MOD"						// webMAN version
+#define WM_VERSION			"1.41.08 MOD"						// webMAN version
 #define MM_ROOT_STD			"/dev_hdd0/game/BLES80608/USRDIR"	// multiMAN root folder
 #define MM_ROOT_SSTL		"/dev_hdd0/game/NPEA00374/USRDIR"	// multiman SingStar® Stealth root folder
 #define MM_ROOT_STL			"/dev_hdd0/tmp/game_repo/main"		// stealthMAN root folder
@@ -4272,8 +4272,47 @@ static void mount_autoboot()
 	}
 }
 
-void add_list_entry(char *tempstr, bool is_dir, char *ename, char *templn, char *name, char *fsize, CellRtcDateTime rDate, u16 flen, unsigned long long sz, char *sf)
+void add_list_entry(char *tempstr, bool is_dir, char *ename, char *templn, char *name, char *fsize, CellRtcDateTime rDate, u16 flen, unsigned long long sz, char *sf, u16 dirs, u8 is_net)
 {
+	if(sz<10240) sprintf(sf, "%s", STR_BYTE);
+	else if(sz<2097152) {sprintf(sf, "%s", STR_KILOBYTE); sz>>=10;}
+	else if(sz<2147483648U) {sprintf(sf, "%s", STR_MEGABYTE); sz>>=20;}
+	else {sprintf(sf, "%s", STR_GIGABYTE); sz>>=30;}
+
+	flen=strlen(name);
+
+	if(is_dir)
+	{
+		if(name[0]=='.')
+			sprintf(fsize, "<a href=\"%s\">&lt;dir&gt;</a>", templn);
+		else
+#ifdef PS2_DISC
+			sprintf(fsize, "<a href=\"/mount%s%s\">&lt;dir&gt;</a>", strstr(name, "[PS2")?".ps2":".ps3", templn);
+#else
+			sprintf(fsize, "<a href=\"/mount.ps3%s\">&lt;dir&gt;</a>", templn);
+#endif
+		dirs++;
+	}
+#ifdef COBRA_ONLY
+	else if( (flen > 4 && name[flen-4]=='.' && strcasestr(ISO_EXTENSIONS, name+flen-4)) || (!is_net && ( strstr(name, ".ntfs[") || !extcmp(name, ".BIN.ENC", 8) )) )
+	{
+		if( strcasestr(name, ".iso.") && extcasecmp(name, ".iso.0", 6) )
+			sprintf(fsize, "%llu %s", sz, sf);
+		else
+			sprintf(fsize, "<a href=\"/mount.ps3%s\">%llu %s</a>", templn, sz, sf);
+	}
+#endif
+#ifdef SWAP_KERNEL
+	else if(!is_net && ( !extcmp(name, ".pkg", 4) || !extcmp(name, ".edat", 5) || !extcmp(name, ".p3t", 4) || !memcmp(name, "webftp_server", 13) || !memcmp(name, "boot_plugins_", 13) || !memcmp(name, "lv2_kernel", 10) ))
+#else
+	else if(!is_net && ( !extcmp(name, ".pkg", 4) || !extcmp(name, ".edat", 5) || !extcmp(name, ".p3t", 4) || !memcmp(name, "webftp_server", 13) || !memcmp(name, "boot_plugins_", 13) ))
+#endif
+		sprintf(fsize, "<a href=\"/copy.ps3%s\">%llu %s</a>", templn, sz, sf);
+	else
+		sprintf(fsize, "%llu %s", sz, sf);
+
+	snprintf(ename, 6, "%s    ", name); sprintf(templn, "%s", name);
+
 	sprintf(tempstr, "%c%c%c%c%c%c<tr>"
                       "<td><a %shref=\"%s\">%s</a></td>"
                       "<td> %s &nbsp; </td>"
@@ -4796,27 +4835,22 @@ static void handleclient(u64 conn_s_p)
 								 !webman_config->usb3 && !webman_config->usb6 && !webman_config->usb7)) continue;
 
 //
-				u8 d0, subfolder; bool has_dirs;
-				d0 = subfolder = 0; has_dirs = false; uprofile = profile;
+				u8 subfolder;
+				subfolder = 0; uprofile = profile;
 read_folder_xml:
 //
 #ifndef LITE_EDITION
 				if(is_net)
 				{
-					if(d0==0)
-						sprintf(param, "/%s%s",    paths[f1], SUFIX(uprofile));
-					else
-						sprintf(param, "/%s%s/%c", paths[f1], SUFIX(uprofile), d0);
+					sprintf(param, "/%s%s",    paths[f1], SUFIX(uprofile));
 				}
 				else
 #endif
 				{
 					if(f0==NTFS) //ntfs
 						sprintf(param, "%s", WMTMP);
-					else if(d0==0)
-						sprintf(param, "%s/%s%s"   , drives[f0], paths[f1], SUFIX(uprofile));
 					else
-						sprintf(param, "%s/%s%s/%c", drives[f0], paths[f1], SUFIX(uprofile), d0);
+						sprintf(param, "%s/%s%s", drives[f0], paths[f1], SUFIX(uprofile));
 				}
 
 				if(conn_s_p==START_DAEMON && f1==0)
@@ -4855,13 +4889,12 @@ read_folder_xml:
 					int fdw, fs;
 					uint64_t msiz = 0;
 					u8 is_iso=0;
-					char icon[MAX_PATH_LEN], enc_dir_name[1024];
+					char icon[MAX_PATH_LEN], enc_dir_name[1024], subpath[MAX_PATH_LEN]; int fd2;
 					char tempID[12];
 #ifdef COBRA_ONLY
 #ifndef LITE_EDITION
 					sys_addr_t data2=0;
-					int v3_entries=0;
-					int v3_entry=0;
+					int v3_entries, v3_entry; v3_entries=v3_entry=0;
 					int is_directory=0;
 					int64_t file_size;
 					u64 mtime, ctime, atime;
@@ -4900,7 +4933,6 @@ read_folder_xml:
 							else
 							{
 								if(data[v3_entry].name[0]=='.') continue;
-								if(!has_dirs) has_dirs=(strlen(data[v3_entry].name)==1);
 								//if(!strstr(param, "/GAME")) {v3_entry++; continue;}
 							}
 
@@ -4992,10 +5024,23 @@ read_folder_xml:
 						{
 							if(entry.d_name[0]=='.') continue;
 
-							int flen = strlen(entry.d_name);
 							char tmp_param[8];
 							strncpy(tmp_param, param+strlen(drives[f0]), 8);
+/////////////////////////////////////////
 							subfolder=0;
+							sprintf(subpath, "%s/%s", param, entry.d_name);
+							if(IS_ISO_FOLDER && isDir(subpath) && cellFsOpendir(subpath, &fd2) == CELL_FS_SUCCEEDED)
+							{
+								strcpy(subpath, entry.d_name); subfolder = 1;
+next_xml_entry:
+								cellFsReaddir(fd2, &entry, &read_e);
+								if(read_e<1) continue;
+								if(entry.d_name[0]=='.') goto next_xml_entry;
+								sprintf(templn, "%s/%s", subpath, entry.d_name); strcpy(entry.d_name, templn);
+							}
+							int flen = strlen(entry.d_name);
+/////////////////////////////////////////
+
 #ifdef COBRA_ONLY
 							is_iso = (f0==NTFS && flen>13 && strstr(entry.d_name + flen - 13, ".ntfs[")!=NULL) ||
 									 (IS_ISO_FOLDER && flen > 4 && (
@@ -5010,14 +5055,6 @@ read_folder_xml:
 							if(!is_iso)
 							{
 								sprintf(templn, "%s/%s/PS3_GAME/PARAM.SFO", param, entry.d_name);
-								if(cellFsStat(templn, &buf)!=CELL_FS_SUCCEEDED)
-								{
-									for(u8 s=1; s<5; s++)
-									{
-										sprintf(templn, "%s/%s/%s%s%s", param, entry.d_name, entry.d_name, (s & 2)?".ISO":".iso", (s & 1)?"":".0");
-										if(cellFsStat(templn, &buf)==CELL_FS_SUCCEEDED) {is_iso = true; subfolder = s; break;}
-									}
-								}
 							}
 
 							if(is_iso || (f1<2 && cellFsStat(templn, &buf)==CELL_FS_SUCCEEDED))
@@ -5120,11 +5157,6 @@ read_folder_xml:
 								get_default_icon(icon, param, entry.d_name, 0, ns, abort_connection);
 
 								strenc(enc_dir_name, entry.d_name);
-								if(subfolder)
-								{
-									sprintf(tempstr, "/%s%s%s", enc_dir_name, (subfolder & 2)?".ISO":".iso", (subfolder & 1)?"":".0");
-									strcat(enc_dir_name, tempstr);
-								}
 
 								sprintf(tempstr, "<Table key=\"%04i\">"
 												 "<Pair key=\"icon\"><String>%s</String></Pair>"
@@ -5164,7 +5196,9 @@ read_folder_xml:
 
 								key++;
 							}
-							else if(!has_dirs) has_dirs=(strlen(entry.d_name)==1);
+//////////////////////////////
+							if(subfolder) goto next_xml_entry;
+//////////////////////////////
 						}
 					}
 					if(!is_net) cellFsClosedir(fd);
@@ -5177,13 +5211,8 @@ read_folder_xml:
 
 //
 continue_reading_folder_xml:
-				if(has_dirs && ((f0!=NTFS) && (f1>1 && f1<9) && (d0<'Z')))
-				{
-					if(d0==0) d0='0'; else if(d0=='9') d0='A'; else d0++;
-					goto read_folder_xml;
-				}
 
-				if((uprofile>0) && (f1<9)) {d0=subfolder=uprofile=0; has_dirs = false; goto read_folder_xml;}
+				if((uprofile>0) && (f1<9)) {subfolder=uprofile=0; goto read_folder_xml;}
 //
 			}
 			if(is_net && ns>=0) {shutdown(ns, SHUT_RDWR); socketclose(ns); ns=-2;}
@@ -6375,46 +6404,24 @@ html_response:
 										for(int n=0;n<v3_entries;n++)
 										{
 											if(data[n].name[0]=='.' && data[n].name[1]==0) continue;
+											if(tlen>(BUFFER_SIZE-1024)) break;
+											if(idx>=(max_entries-3)) break;
+
 											if(param[1]==0)
 												sprintf(templn, "/%s", data[n].name);
 											else
 											{
 												sprintf(templn, "%s%s", param, data[n].name);
-												flen=strlen(templn)-1; if(templn[flen]=='/') templn[flen]=0;
 											}
-											if(tlen>(BUFFER_SIZE-1024)) break;
-											if(idx>=(max_entries-3)) break;
+											flen=strlen(templn)-1; if(templn[flen]=='/') templn[flen]=0;
 
 											cellRtcSetTime_t(&rDate, data[n].mtime);
 
-                                            sz=(unsigned long long)data[n].file_size; dir_size+=sz;
-											if(sz<10240) sprintf(sf, "%s", STR_BYTE);
-											else if(sz<2097152) {sprintf(sf, "%s", STR_KILOBYTE); sz>>=10;}
-											else if(sz<2147483648U) {sprintf(sf, "%s", STR_MEGABYTE); sz>>=20;}
-											else {sprintf(sf, "%s", STR_GIGABYTE); sz>>=30;}
+											sz=(unsigned long long)data[n].file_size; dir_size+=sz;
 
-											is_dir=data[n].is_directory; flen=strlen(data[n].name);
+											is_dir=data[n].is_directory;
 
-											if(is_dir)
-#ifdef PS2_DISC
-												{sprintf(fsize, "<a href=\"/mount%s%s\">&lt;dir&gt;</a>", strstr(data[n].name, "[PS2")?".ps2":".ps3", templn); dirs++;}
-#else
-												{sprintf(fsize, "<a href=\"/mount.ps3%s\">&lt;dir&gt;</a>", templn); dirs++;}
-#endif
-											else if((flen > 4 && data[n].name[flen-4]=='.' && strcasestr(ISO_EXTENSIONS, data[n].name+flen-4)) || strstr(data[n].name, ".ntfs[") || !extcmp(data[n].name, ".BIN.ENC", 8))
-											{
-												if( strcasestr(data[n].name, ".iso.") && extcasecmp(data[n].name, ".iso.0", 6) )
-													sprintf(fsize, "%llu %s", sz, sf);
-												else
-													sprintf(fsize, "<a href=\"/mount.ps3%s\">%llu %s</a>", templn, sz, sf);
-											}
-											else
-												sprintf(fsize, "%llu %s", sz, sf);
-
-											snprintf(ename, 6, "%s    ", data[n].name); sprintf(templn, "%s", data[n].name);
-
-
-											add_list_entry(tempstr, is_dir, ename, templn, data[n].name, fsize, rDate, flen, sz, sf);
+											add_list_entry(tempstr, is_dir, ename, templn, data[n].name, fsize, rDate, flen, sz, sf, dirs, true);
 
 											if(strlen(tempstr)>MAX_LINE_LEN) continue; //ignore lines too long
 											strncpy(line_entry[idx].path, tempstr, LINELEN); idx++;
@@ -6472,60 +6479,25 @@ html_response:
 								while(cellFsReaddir(fd, &entry, &read_e) == 0 && read_e > 0)
 								{
 									if(entry.d_name[0]=='.' && entry.d_name[1]==0) continue;
+									if(tlen>(BUFFER_SIZE-1024)) break;
+									if(idx>=(max_entries-3)) break;
+
 									if(param[1]==0)
 										sprintf(templn, "/%s", entry.d_name);
 									else
 									{
 										sprintf(templn, "%s/%s", param, entry.d_name);
-										flen = strlen(templn)-1; if(templn[flen]=='/') templn[flen]=0;
 									}
-									if(tlen>(BUFFER_SIZE-1024)) break;
-									if(idx>=(max_entries-3)) break;
+									flen = strlen(templn)-1; if(templn[flen]=='/') templn[flen]=0;
 
 									cellFsStat(templn, &buf);
 									cellRtcSetTime_t(&rDate, buf.st_mtime);
 
 									sz=(unsigned long long)buf.st_size; dir_size+=sz;
-									if(sz<10240) sprintf(sf, "%s", STR_BYTE);
-									else if(sz<2097152) {sprintf(sf, "%s", STR_KILOBYTE); sz>>=10;}
-									else if(sz<2147483648U) {sprintf(sf, "%s", STR_MEGABYTE); sz>>=20;}
-									else {sprintf(sf, "%s", STR_GIGABYTE); sz>>=30;}
 
-									is_dir=(buf.st_mode & S_IFDIR); flen = strlen(entry.d_name);
+									is_dir=(buf.st_mode & S_IFDIR);
 
-									if(is_dir)
-									{
-										if(entry.d_name[0]=='.')
-											sprintf(fsize, "<a href=\"%s\">&lt;dir&gt;</a>", templn);
-										else
-#ifdef PS2_DISC
-											sprintf(fsize, "<a href=\"/mount%s%s\">&lt;dir&gt;</a>", strstr(entry.d_name, "[PS2")?".ps2":".ps3", templn);
-#else
-											sprintf(fsize, "<a href=\"/mount.ps3%s\">&lt;dir&gt;</a>", templn);
-#endif
-										dirs++;
-									}
-#ifdef COBRA_ONLY
-									else if((flen > 4 && entry.d_name[flen-4]=='.' && strcasestr(ISO_EXTENSIONS, entry.d_name+flen-4)) || strstr(entry.d_name, ".ntfs[") || !extcmp(entry.d_name, ".BIN.ENC", 8))
-									{
-										if( strcasestr(entry.d_name, ".iso.") && extcasecmp(entry.d_name, ".iso.0", 6) )
-											sprintf(fsize, "%llu %s", sz, sf);
-										else
-											sprintf(fsize, "<a href=\"/mount.ps3%s\">%llu %s</a>", templn, sz, sf);
-									}
-#endif
-#ifdef SWAP_KERNEL
-									else if( !extcmp(entry.d_name, ".pkg", 4) || !extcmp(entry.d_name, ".edat", 5) || !extcmp(entry.d_name, ".p3t", 4) || !memcmp(entry.d_name, "webftp_server", 13) || !memcmp(entry.d_name, "boot_plugins_", 13) || !memcmp(entry.d_name, "lv2_kernel", 10) )
-#else
-									else if( !extcmp(entry.d_name, ".pkg", 4) || !extcmp(entry.d_name, ".edat", 5) || !extcmp(entry.d_name, ".p3t", 4) || !memcmp(entry.d_name, "webftp_server", 13) || !memcmp(entry.d_name, "boot_plugins_", 13) )
-#endif
-										sprintf(fsize, "<a href=\"/copy.ps3%s\">%llu %s</a>", templn, sz, sf);
-									else
-										sprintf(fsize, "%llu %s", sz, sf);
-
-									snprintf(ename, 6, "%s    ", entry.d_name); sprintf(templn, "%s", entry.d_name);
-
-									add_list_entry(tempstr, is_dir, ename, templn, entry.d_name, fsize, rDate, flen, sz, sf);
+									add_list_entry(tempstr, is_dir, ename, templn, entry.d_name, fsize, rDate, flen, sz, sf, dirs, false);
 
 									if(strlen(tempstr)>MAX_LINE_LEN) continue; //ignore lines too long
 									strncpy(line_entry[idx].path, tempstr, LINELEN); idx++;
@@ -7984,7 +7956,7 @@ just_leave:
 							u16 max_entries=((BUFFER_SIZE))/MAX_LINE_LEN;
 
 							// filter html content
-							u8 filter0=0, filter1=0, b0=0, b1=0;
+							u8 filter0, filter1, b0, b1; char filter_name[MAX_PATH_LEN]; filter_name[0]=0; filter0=filter1=b0=b1=0;
 #ifdef COBRA_ONLY
 							if(strstr(param, "ntfs")) {filter0=NTFS; b0=1;} else
 #endif
@@ -7999,6 +7971,7 @@ just_leave:
 							if(!b0 && strstr(param, "net" )) {filter0=7; b0=3;}
 #endif
 #endif
+							if(b0==0 && b1==0 && strstr(param, "?")!=NULL && strstr(param, "?html")==NULL) strcpy(filter_name, strstr(param, "?")+1);
 
 							for(u8 f0=filter0; f0<11; f0++)  // drives: 0="/dev_hdd0", 1="/dev_usb000", 2="/dev_usb001", 3="/dev_usb002", 4="/dev_usb003", 5="/dev_usb006", 6="/dev_usb007", 7="/net0", 8="/net1", 9="/net2", 10="/ext"
 							{
@@ -8050,27 +8023,22 @@ just_leave:
 									if( f0==NTFS && (!webman_config->usb0 && !webman_config->usb1 && !webman_config->usb2 &&
 													 !webman_config->usb3 && !webman_config->usb6 && !webman_config->usb7)) continue;
 //
-									u8 d1, subfolder; bool has_dirs;
-									d1 = subfolder = 0; has_dirs = false; uprofile = profile;
+									u8 subfolder;
+									subfolder = 0; uprofile = profile;
 		read_folder_html:
 //
 #ifndef LITE_EDITION
 									if(is_net)
 									{
-										if(d1==0)
-											sprintf(param, "/%s%s",    paths[f1], SUFIX(uprofile));
-										else
-											sprintf(param, "/%s%s/%c", paths[f1], SUFIX(uprofile), d1);
+										sprintf(param, "/%s%s",    paths[f1], SUFIX(uprofile));
 									}
 									else
 #endif
 									{
-										if(f0==NTFS)//ntfs
+										if(f0==NTFS) //ntfs
 											sprintf(param, "%s", WMTMP);
-										else if(d1==0)
-											sprintf(param, "%s/%s%s", drives[f0], paths[f1], SUFIX(uprofile));
 										else
-											sprintf(param, "%s/%s%s/%c", drives[f0], paths[f1], SUFIX(uprofile), d1);
+											sprintf(param, "%s/%s%s", drives[f0], paths[f1], SUFIX(uprofile));
 									}
 #ifdef COBRA_ONLY
 #ifndef LITE_EDITION
@@ -8080,11 +8048,10 @@ just_leave:
 									CellFsDirent entry;
 									u64 read_e;
 									u8 is_iso=0;
-									char icon[MAX_PATH_LEN], enc_dir_name[1024];
+									char icon[MAX_PATH_LEN], enc_dir_name[1024], subpath[MAX_PATH_LEN]; int fd2;
 									char tempID[12];
 									sys_addr_t data2=0;
-									int v3_entries=0;
-									int v3_entry=0;
+									int v3_entries, v3_entry; v3_entries=v3_entry=0;
 #ifdef COBRA_ONLY
 									uint64_t msiz = 0;
 #ifndef LITE_EDITION
@@ -8121,10 +8088,11 @@ just_leave:
 											}
 											else
 											{
-												if(data[v3_entry].name[0]=='.') continue;
-												if(!has_dirs) has_dirs=(strlen(data[v3_entry].name)==1);
+												if(data[v3_entry].name[0]=='.') {v3_entry++; continue;}
 												//if(!strstr(param, "/GAME")) {v3_entry++; continue;}
 											}
+
+											if(filter_name[0]>=' ' && strcasestr(param, filter_name)==NULL && strcasestr(data[v3_entry].name, filter_name)==NULL) {v3_entry++; continue;}
 
 											if(IS_PS3_FOLDER) //PS3 games only
 											{
@@ -8146,11 +8114,11 @@ just_leave:
 														int bytes_read, boff=0;
 														while(boff<file_size)
 														{
-															bytes_read = read_remote_file(ns, (char*)tempstr, boff, 3072, &abort_connection);
+															bytes_read = read_remote_file(ns, (char*)tempstr, boff, 4092, &abort_connection);
 															if(bytes_read)
 																cellFsWrite(fdw, (char*)tempstr, bytes_read, NULL);
 															boff+=bytes_read;
-															if(bytes_read<3072 || abort_connection) break;
+															if(bytes_read<4092 || abort_connection) break;
 														}
 														open_remote_file_2(ns, (char*)"/CLOSEFILE", &bytes_read);
 														cellFsClose(fdw);
@@ -8190,10 +8158,26 @@ just_leave:
 										{
 											if(entry.d_name[0]=='.') continue;
 
-											int flen = strlen(entry.d_name);
 											char tmp_param[8];
 											strncpy(tmp_param, param+strlen(drives[f0]), 8);
+/////////////////////////////////////////
 											subfolder = 0;
+											sprintf(subpath, "%s/%s", param, entry.d_name);
+											if(IS_ISO_FOLDER && isDir(subpath) && cellFsOpendir(subpath, &fd2) == CELL_FS_SUCCEEDED)
+											{
+												strcpy(subpath, entry.d_name); subfolder = 1;
+next_html_entry:
+												cellFsReaddir(fd2, &entry, &read_e);
+												if(read_e<1) continue;
+												if(entry.d_name[0]=='.') goto next_html_entry;
+												sprintf(templn, "%s/%s", subpath, entry.d_name); strcpy(entry.d_name, templn);
+											}
+											int flen = strlen(entry.d_name);
+/////////////////////////////////////////
+
+											if(filter_name[0]>=' ' && strcasestr(param, filter_name)==NULL && strcasestr(entry.d_name, filter_name)==NULL)
+											{if(subfolder) goto next_html_entry; continue;}
+
 #ifdef COBRA_ONLY
 											is_iso = (f0==NTFS && flen>13 && strstr(entry.d_name + flen - 13, ".ntfs[")!=NULL) ||
 													 (IS_ISO_FOLDER && flen > 4 && (
@@ -8208,14 +8192,6 @@ just_leave:
 											if(!is_iso)
 											{
 												sprintf(templn, "%s/%s/PS3_GAME/PARAM.SFO", param, entry.d_name);
-												if(cellFsStat(templn, &buf)!=CELL_FS_SUCCEEDED)
-												{
-													for(u8 s=1; s<5; s++)
-													{
-														sprintf(templn, "%s/%s/%s%s%s", param, entry.d_name, entry.d_name, (s & 2)?".ISO":".iso", (s & 1)?"":".0");
-														if(cellFsStat(templn, &buf)==CELL_FS_SUCCEEDED) {is_iso = true; subfolder = s; break;}
-													}
-												}
 											}
 
 											if(is_iso || (f1<2 && cellFsStat(templn, &buf)==CELL_FS_SUCCEEDED))
@@ -8319,18 +8295,10 @@ just_leave:
 												snprintf(ename, 6, "%s    ", templn);
 												do
 												{
-													if(subfolder)
-													{
-														sprintf(tempstr, "%c%c%c%c<div class=\"gc\"><div class=\"ic\"><a href=\"/mount.ps3%s/%s/%s%s%s\"><img src=\"%s\" class=\"gi\"></a></div><div class=\"gn\"><a href=\"%s\">%s</a></div></div>",
-															ename[0], ename[1], ename[2], ename[3],
-															param, enc_dir_name, enc_dir_name, (subfolder & 2)?".ISO":".iso", (subfolder & 1)?"":".0", icon, param, templn);
-													}
-													else
-													{
-														sprintf(tempstr, "%c%c%c%c<div class=\"gc\"><div class=\"ic\"><a href=\"/mount.ps3%s/%s\"><img src=\"%s\" class=\"gi\"></a></div><div class=\"gn\"><a href=\"%s/%s\">%s</a></div></div>",
-															ename[0], ename[1], ename[2], ename[3],
-															param, enc_dir_name, icon, param, enc_dir_name, templn);
-													}
+													sprintf(tempstr, "%c%c%c%c<div class=\"gc\"><div class=\"ic\"><a href=\"/mount.ps3%s/%s\"><img src=\"%s\" class=\"gi\"></a></div><div class=\"gn\"><a href=\"%s/%s\">%s</a></div></div>",
+														ename[0], ename[1], ename[2], ename[3],
+														param, enc_dir_name, icon, param, enc_dir_name, templn);
+
 													flen-=4; if(flen<32) break;
 													templn[flen]=0;
 												}
@@ -8343,23 +8311,17 @@ just_leave:
 
 												cellRtcGetCurrentTick(&pTick);
 											}
-											else if(!has_dirs) has_dirs=(strlen(entry.d_name)==1);
+//////////////////////////////
+											if(subfolder) goto next_html_entry;
+//////////////////////////////
 										}
-
-										if(strlen(buffer)>(BUFFER_SIZE-1024)) break;
 									}
 									if(!is_net) cellFsClosedir(fd);
 									if(is_net && data2!=NULL) sys_memory_free(data2);
 
 //
 	continue_reading_folder_html:
-									if(has_dirs && ((f0!=NTFS) && (f1>1 && f1<9) && (d1<'Z')))
-									{
-										if(d1==0) d1='0'; else if(d1=='9') d1='A'; else d1++;
-										goto read_folder_html;
-									}
-
-									if((uprofile>0) && (f1<9)) {d1=subfolder=uprofile=0; has_dirs = false; goto read_folder_html;}
+									if((uprofile>0) && (f1<9)) {subfolder=uprofile=0; goto read_folder_html;}
 //
 								}
 								if(is_net && ns>=0) {shutdown(ns, SHUT_RDWR); socketclose(ns); ns=-2;}
