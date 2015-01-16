@@ -7588,7 +7588,7 @@ just_leave:
 
 							if(!(plen==IS_COPY && !copy_in_progress))
 							{
-								for(u16 n=0; n<strlen(param)-9; n++)
+								for(int n=0; n<strlen(param)-9; n++)
 									if(memcmp(param + n, "/PS3_GAME", 9)==0) {param[n]=0; break;}
 #ifdef PS2_DISC
 								if(!memcmp(param, "/mount.ps2", 10))
@@ -12153,8 +12153,13 @@ static bool mount_with_mm(const char *_path0, u8 do_eject)
 
 	strcpy(_path, _path0);
 
-	for(u16 n=0; n<strlen(_path)-9; n++)
-		if(memcmp(_path + n, "/PS3_GAME", 9)==0) {_path[n]=0; break;}
+	int plen=strlen(_path)-9;
+
+	if(_path=='/' && plen>0)
+	{
+		for(int n=0; n<plen; n++)
+			if(memcmp(_path + n, "/PS3_GAME", 9)==0) {_path[n]=0; break;}
+	}
 
 #ifndef LITE_EDITION
 	if(!strcmp(_path, "/net0")) strcpy((char*)_path, "/net0/."); else
@@ -12204,6 +12209,7 @@ static bool mount_with_mm(const char *_path0, u8 do_eject)
 				strcpy(_path, lastgames.game[lastgames.last]);
 			}
 			else
+
 			{
 				if(lastgames.last==250)
 				{
